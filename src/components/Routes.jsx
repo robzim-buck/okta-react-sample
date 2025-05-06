@@ -16,20 +16,119 @@ import { LoginCallback } from '@okta/okta-react';
 import { RequiredAuth } from './SecureRoute';
 import Home from '../pages/Home';
 import Loading from './Loading';
-import Messages from '../pages/Messages';
 import Profile from '../pages/Profile';
+import APILogs from './APILogs';
+import SaltPing from './SaltPing';
+import ActiveSelfServLicenses from './ActiveSelfServLicenses';
+import GrantSelfServeLicenses from './GrantSelfServeLicenses';
+import ReturnSelfServeLicenses from './ReturnSelfServeLicenses';
+import Invoices from './Invoices';
+import SalesOrders from './SalesOrders';
+import ParsecLeoReport from './ParsecLeoReport';
+import VMWareHosts from './VMWareHosts';
+import ZenDeskTickets from './ZenDeskTickets';
+import JAMFMachineInfo from './JAMFMachineInfo';
+import HammerspaceShares from './HammerspaceShares';
+import HammerspaceObjectives from './HammerspaceObjectives';
+import HammerspaceSites from './HammerspaceSites';
+import PhysicalDrives from './PhysicalDrives';
+import LDAPMachineInfo from './LDAPMachineInfo';
+import OktaUsers from './OktaUsers';
+import OktaGroups from './OktaGroups';
 
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" exact={true} element={<Home/>}/>
       <Route path="login/callback" element={<LoginCallback loadingElement={<Loading/>}/>}/>
-      <Route path="/messages" element={<RequiredAuth/>}>
+      {/* <Route path="/messages" element={<RequiredAuth/>}>
         <Route path="" element={<Messages/>}/>
-      </Route>
+      </Route> */}
       <Route path="/profile" element={<RequiredAuth/>}>
         <Route path="" element={<Profile/>}/>
       </Route>
+      <Route path="/apilogs" element={<RequiredAuth/>}>
+        <Route path="" element={<APILogs/>}/>
+      </Route>
+      <Route path="/salt_ping" element={<RequiredAuth/>}>
+        <Route path="" element={<SaltPing/>}/>
+      </Route>
+      <Route path="/salt_ping" element={<RequiredAuth/>}>
+        <Route path="" element={<SaltPing/>}/>
+      </Route>
+      <Route path="/activeselfservelicenses" element={<RequiredAuth/>}>
+        <Route path="" element={<ActiveSelfServLicenses/>}/>
+      </Route>
+      <Route path="/grantselfservelicenses" element={<RequiredAuth/>}>
+        <Route path="" element={<GrantSelfServeLicenses name="Grant Licenses" />}/>
+      </Route>
+      <Route path="/returnselfservelicenses" element={<RequiredAuth/>}>
+        <Route path="" element={<ReturnSelfServeLicenses  name="Return Licenses" />}/>
+      </Route>
+
+      <Route path="/physicaldrives" element={<RequiredAuth/>}>
+        <Route path="" element={<PhysicalDrives/>}/>
+      </Route>
+
+      <Route path="/ldapmachineinfo" element={<RequiredAuth/>}>
+        <Route path="" element={<LDAPMachineInfo/>}/>
+      </Route>
+
+
+      <Route path="/hammerspaceshares" element={<RequiredAuth/>}>
+        <Route path="" element={<HammerspaceShares/>}/>
+      </Route>
+
+      <Route path="/hammerspaceobjectives" element={<RequiredAuth/>}>
+        <Route path="" element={<HammerspaceObjectives/>}/>
+      </Route>
+      <Route path="/hammerspacesites" element={<RequiredAuth/>}>
+        <Route path="" element={<HammerspaceSites/>}/>
+      </Route>
+
+
+
+
+
+      <Route path="/oktausers" element={<RequiredAuth/>}>
+        <Route path="" element={<OktaUsers/>}/>
+      </Route>
+      <Route path="/oktagroups" element={<RequiredAuth/>}>
+        <Route path="" element={<OktaGroups/>}/>
+      </Route>
+
+
+
+      <Route path="/jamfmachineinfo" element={<RequiredAuth/>}>
+        <Route path="" element={<JAMFMachineInfo/>}/>
+      </Route>
+      <Route path="/zendesktickets" element={<RequiredAuth/>}>
+        <Route path="" element={<ZenDeskTickets/>}/>
+      </Route>
+
+
+
+
+      <Route path="/parsecleoreport" element={<RequiredAuth/>}>
+        <Route path="" element={<ParsecLeoReport/>}/>
+      </Route>
+      <Route path="/vmwarehosts" element={<RequiredAuth/>}>
+        <Route path="" element={<VMWareHosts/>}/>
+      </Route>
+
+
+      <Route path="/invoices" element={
+        <RequiredAuth allowedEmail="rob.zimmelman@buck.co,gsuite.holding@buck.co">
+          <Invoices />
+        </RequiredAuth>
+      }/>
+
+
+      <Route path="/salesorders" element={
+        <RequiredAuth allowedEmail="rob.zimmelman@buck.co,gsuite.holding@buck.co">
+          <SalesOrders />
+        </RequiredAuth>
+      }/>
     </Routes>
   );
 };

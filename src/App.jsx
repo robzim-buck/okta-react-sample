@@ -16,9 +16,11 @@ import { useNavigate } from 'react-router-dom';
 import { OktaAuth, toRelativeUrl } from '@okta/okta-auth-js';
 import { Security } from '@okta/okta-react';
 import { Container } from 'semantic-ui-react';
+import { Grid } from 'semantic-ui-react';
 import config from './config';
 import Navbar from './Navbar';
-import Routes from './components/Routes';
+// import Routes from './components/Routes';
+import AppRoutes from './components/Routes';
 
 const oktaAuth = new OktaAuth(config.oidc);
 
@@ -29,16 +31,21 @@ const App = () => {
   };
 
   return (
-    <Security oktaAuth={oktaAuth} restoreOriginalUri={restoreOriginalUri}>
-      <Container text style={{marginTop: '7em'}} className="App">
-        <header className="App-header">
-          <Navbar/>
-        </header>
-        <main>
-          <Routes />
-        </main>
+    <>
+      <Security oktaAuth={oktaAuth} restoreOriginalUri={restoreOriginalUri}>
+      <Container style={{marginTop: '7em', maxWidth: '50%'}} className="App">
+      <Grid >
+          <Grid.Row columns={16}>
+            <Grid.Column width={2}><Navbar/></Grid.Column>
+            <Grid.Column width={1}></Grid.Column>
+            <Grid.Column width={13}>
+              <AppRoutes/>
+            </Grid.Column>
+          </Grid.Row>
+          </Grid>
       </Container>
     </Security>
+    </>
   );
 };
 export default App;

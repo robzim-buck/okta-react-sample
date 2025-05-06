@@ -16,9 +16,8 @@ import { toRelativeUrl } from '@okta/okta-auth-js';
 import { Outlet } from 'react-router-dom';
 import Loading from './Loading';
 
-export const RequiredAuth = () => {
+export const RequiredAuth = ({ allowedEmail, children }) => {
   const { oktaAuth, authState } = useOktaAuth();
-
   useEffect(() => {
     if (!authState) {
       return;
@@ -31,9 +30,23 @@ export const RequiredAuth = () => {
     }
   }, [oktaAuth, !!authState, authState?.isAuthenticated]);
 
-  if (!authState || !authState?.isAuthenticated) {
+  if (!authState) {
     return (<Loading />);
   }
 
-  return (<Outlet />);
+  if (!authState.isAuthenticated) {
+    return (<Loading />);
+  }
+
+  // if (allowedEmail && authState.idToken?.claims?.email !== allowedEmail) {
+  //   return <div>You do not have permission to access this page.</div>;
+  // }
+  
+  const allowedEmailList = allowedEmail ? allowedEmail.split(','): '';
+  console.log('allowedEmailList', allowedEmailList);
+  if (allowedEmailList && (allowedEmailList.includes(authState.idToken?.claims?.email) === false) ) {
+    return <div>You do not have permission to access this page.</div>;
+  }
+
+  return children ? <>{children}</> : <Outlet />;
 }
