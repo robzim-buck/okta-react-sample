@@ -35,6 +35,10 @@ import PhysicalDrives from './PhysicalDrives';
 import LDAPMachineInfo from './LDAPMachineInfo';
 import OktaUsers from './OktaUsers';
 import OktaGroups from './OktaGroups';
+import LDAPUsers from './LDAPUsers';
+import CompositeMachineInfo from './CompositeMachineInfo';
+
+
 
 const AppRoutes = () => {
   return (
@@ -107,11 +111,20 @@ const AppRoutes = () => {
       </Route>
 
 
+      <Route path="/ldapusers" element={<RequiredAuth/>}>
+        <Route path="" element={<LDAPUsers/>}/>
+      </Route>
 
+
+
+      <Route path="/compositemachineinfo" element={<RequiredAuth/>}>
+        <Route path="" element={<CompositeMachineInfo/>}/>
+      </Route>
 
       <Route path="/parsecleoreport" element={<RequiredAuth/>}>
         <Route path="" element={<ParsecLeoReport/>}/>
       </Route>
+
       <Route path="/vmwarehosts" element={<RequiredAuth/>}>
         <Route path="" element={<VMWareHosts/>}/>
       </Route>

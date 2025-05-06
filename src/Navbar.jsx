@@ -116,6 +116,15 @@ const Navbar = () => {
 
 
 
+            <Menu.Item id="ldap-users-button">
+              <Link to="/compositemachineinfo">Composite Machine Info</Link>
+            </Menu.Item>
+
+
+            <Menu.Item id="compositemachineinfo-button">
+              <Link to="/ldapusers">LDAP Users</Link>
+            </Menu.Item>
+
 
 
             <Menu.Item id="logout-button" onClick={logout}>Logout</Menu.Item>
