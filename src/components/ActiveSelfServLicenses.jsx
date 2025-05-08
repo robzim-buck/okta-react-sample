@@ -2,13 +2,10 @@ import uuid from 'react-uuid';
 import { useState, useMemo } from 'react';
 import { useQueries } from "@tanstack/react-query";
 import { Typography, Button, IconButton } from '@mui/material';
-import { Chip, Grid, Box, Card, CardContent, Collapse } from '@mui/material';
+import { Chip, Grid, Box, Card, CardContent, Collapse, Switch, FormControlLabel } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
-
-// import { DataGrid } from '@mui/x-data-grid';
-
-
+import { DataGrid } from '@mui/x-data-grid';
 
 const setColor = (param) => {
     if (param < sixty_minutes / 2.0) {
@@ -157,6 +154,8 @@ export default function ActiveSelfServLicenses(props) {
     const [emailfilter, setEmailFilter] = useState('');   
     const [productfilter, setProductFilter] = useState('');   
     const [expandedUsers, setExpandedUsers] = useState({});
+    const [tableView, setTableView] = useState(false);
+    const [expandAll, setExpandAll] = useState(false);
     
     const [activeLicenses] = useQueries({
         queries: [
@@ -182,6 +181,20 @@ export default function ActiveSelfServLicenses(props) {
             [email]: !prev[email]
         }));
     }
+
+    const toggleExpandAll = () => {
+        const newExpandAll = !expandAll;
+        setExpandAll(newExpandAll);
+        
+        // Switch to table view if expand all is enabled
+        setTableView(newExpandAll);
+        
+        if (!newExpandAll) {
+            // Collapse all users when switching back to card view
+            setExpandedUsers({});
+        }
+    }
+
     if (activeLicenses.isLoading) return <CircularProgress></CircularProgress>;
     if (activeLicenses.error) return "An error has occurred: " + activeLicenses.error.message;
     if (activeLicenses.data) {
@@ -279,6 +292,88 @@ export default function ActiveSelfServLicenses(props) {
         // Use the direct grouping for now to ensure we see data
         const groupedUsers = directGroupedUsers;
 
+        // Create a flat array of all licenses for the data grid
+        const allLicenses = filteredData.map(license => {
+            if (!license || !license.expiry) return null;
+            
+            let expiry = Date.parse(license.expiry);
+            let timeToExpire = expiry - Date.now();
+            let durationOfLicense = Date.parse(license.expiry) - Date.parse(license.timestamp);
+            let durationString = durationOfLicense / (60 * 60 * 24 * 1000);
+            
+            const status = setChipLabel(timeToExpire);
+            const isExtended = setExtendedLabel(license.timestamp, license.expiry, license.product) === 'Extended';
+            
+            return {
+                id: license.email + '-' + license.product + '-' + license.timestamp,
+                email: license.email,
+                product: license.product,
+                status: status,
+                extended: isExtended ? 'Yes' : 'No',
+                issuedDate: license.timestamp,
+                expiryDate: license.expiry,
+                duration: durationString.toFixed(2) + ' days',
+                timeToExpire: timeToExpire,
+                ...license
+            };
+        }).filter(Boolean);
+
+        // Define columns for the DataGrid
+        const columns = [
+            { field: 'email', headerName: 'Email', flex: 1.5, sortable: true },
+            { field: 'product', headerName: 'Product', flex: 1, sortable: true },
+            { 
+                field: 'status', 
+                headerName: 'Status', 
+                flex: 0.7, 
+                sortable: true,
+                renderCell: (params) => (
+                    <Chip 
+                        label={params.value} 
+                        color={setColor(params.row.timeToExpire)}
+                        variant="filled"
+                        size="small"
+                    />
+                )
+            },
+            { 
+                field: 'extended', 
+                headerName: 'Extended', 
+                flex: 0.7, 
+                sortable: true,
+                renderCell: (params) => (
+                    params.value === 'Yes' ? 
+                    <Chip label="Extended" color="info" size="small" /> : 
+                    <Chip label="Standard" variant="outlined" size="small" />
+                )
+            },
+            { 
+                field: 'issuedDate', 
+                headerName: 'Issued', 
+                flex: 1, 
+                sortable: true,
+                valueFormatter: (params) => params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A',
+                renderCell: (params) => (
+                    <Typography variant="body2">
+                        {params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
+                    </Typography>
+                )
+            },
+            { 
+                field: 'expiryDate', 
+                headerName: 'Expires', 
+                flex: 1, 
+                sortable: true,
+                valueFormatter: (params) => params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A',
+                renderCell: (params) => (
+                    <Typography variant="body2" color={setDateColor(params.value)}>
+                        {params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
+                    </Typography>
+                )
+            },
+            { field: 'duration', headerName: 'Duration', flex: 0.8, sortable: true },
+        ];
+
         return (
             <>
             <Box sx={{ margin: 2 }}>
@@ -364,7 +459,19 @@ export default function ActiveSelfServLicenses(props) {
                         </Grid>
                         
                         <Grid item xs={12} md={6}>
-                            <Typography variant="h6" gutterBottom>Filters</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="h6" gutterBottom>Filters</Typography>
+                                <Box>
+                                    <Button
+                                        variant="contained"
+                                        color={expandAll ? "secondary" : "primary"}
+                                        onClick={toggleExpandAll}
+                                        sx={{ ml: 2 }}
+                                    >
+                                        {expandAll ? "Card View" : "Table View"}
+                                    </Button>
+                                </Box>
+                            </Box>
                             
                             <Grid container spacing={2}>
                                 <Grid item xs={12}>
@@ -442,259 +549,281 @@ export default function ActiveSelfServLicenses(props) {
                     <Typography>No users found with the current filters</Typography>
                 ) : (
                     <>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" color="primary">
-                                Found {groupedUsers.length} users with active licenses
-                            </Typography>
-                            <Chip 
-                                label={`${groupedUsers.length} Users`} 
-                                color="primary" 
-                                variant="outlined" 
-                                sx={{ fontWeight: 'bold' }}
-                            />
-                        </Box>
-                        
-                        {groupedUsers.map(user => {
-                            if (!user || !user.email) return null;
-                            
-                            const isExpanded = expandedUsers[user.email] || false;
-                            // Calculate license status for badge
-                            const hasExpiring = user.licenses.some(lic => {
-                                const expiry = Date.parse(lic.expiry);
-                                const timeToExpire = expiry - Date.now();
-                                return timeToExpire < (sixty_minutes * 2.0);
-                            });
-                            
-                            // Count products
-                            const productCount = user.products ? user.products.length : 0;
-                            const licenseCount = user.licenses ? user.licenses.length : 0;
-                            
-                            return (
-                                <Card 
-                                    key={uuid()} 
+                        {/* User Summary - Only show if not in table view */}
+                        {!tableView && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Typography variant="h6" color="primary">
+                                    Found {groupedUsers.length} users with active licenses
+                                </Typography>
+                                <Chip 
+                                    label={`${groupedUsers.length} Users`} 
+                                    color="primary" 
                                     variant="outlined" 
-                                    sx={{ 
-                                        mb: 2, 
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                                        borderLeft: hasExpiring ? '4px solid #f44336' : '4px solid #4caf50',
-                                        transition: 'all 0.2s ease-in-out',
-                                        '&:hover': {
-                                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                                            transform: 'translateY(-2px)'
-                                        }
+                                    sx={{ fontWeight: 'bold' }}
+                                />
+                            </Box>
+                        )}
+                        
+                        {/* Table View */}
+                        {tableView ? (
+                            <Box sx={{ width: '100%', height: 'auto', minHeight: 400 }}>
+                                <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+                                    Showing all licenses in table format
+                                </Typography>
+                                <DataGrid
+                                    rows={allLicenses}
+                                    columns={columns}
+                                    initialState={{
+                                        pagination: {
+                                            paginationModel: {
+                                                pageSize: 25,
+                                            },
+                                        },
+                                        sorting: {
+                                            sortModel: [{ field: 'email', sort: 'asc' }],
+                                        },
                                     }}
-                                >
-                                    <CardContent sx={{ py: 2 }}>
-                                        <Grid container alignItems="center" spacing={2}>
-                                            <Grid item xs={12} md={5}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <Box 
-                                                        sx={{ 
-                                                            width: 40, 
-                                                            height: 40, 
-                                                            borderRadius: '50%', 
-                                                            bgcolor: 'primary.light', 
-                                                            display: 'flex', 
-                                                            justifyContent: 'center', 
-                                                            alignItems: 'center',
-                                                            mr: 2,
-                                                            color: 'white',
-                                                            fontWeight: 'bold'
-                                                        }}
-                                                    >
-                                                        {user.email.charAt(0).toUpperCase()}
-                                                    </Box>
-                                                    <Typography 
-                                                        variant="body1" 
-                                                        sx={{ 
-                                                            fontWeight: 'medium',
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis'
-                                                        }}
-                                                    >
-                                                        {user.email}
-                                                    </Typography>
-                                                </Box>
-                                            </Grid>
-                                            
-                                            <Grid item xs={12} md={5}>
-                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                                    {user.products && user.products.map(product => (
-                                                        <Chip 
-                                                            key={product} 
-                                                            label={product} 
-                                                            size="small" 
-                                                            variant="outlined"
-                                                            color="secondary"
-                                                        />
-                                                    ))}
-                                                </Box>
-                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                                    {productCount} product{productCount !== 1 ? 's' : ''} • {licenseCount} license{licenseCount !== 1 ? 's' : ''}
-                                                </Typography>
-                                            </Grid>
-                                            
-                                            <Grid item xs={12} md={2} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                                                <Button 
-                                                    aria-label={isExpanded ? 'Hide Details' : 'Show Details'}
-                                                    size="small"
-                                                    variant="contained"
-                                                    color={isExpanded ? "secondary" : "primary"}
-                                                    onClick={() => toggleUserExpand(user.email)}
-                                                    sx={{ 
-                                                        minWidth: 100,
-                                                        borderRadius: 8
-                                                    }}
-                                                >
-                                                    {isExpanded ? 'Hide' : 'Show'}
-                                                </Button>
-                                            </Grid>
-                                        </Grid>
-                                        
-                                        <Collapse in={isExpanded}>
-                                            <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid rgba(0,0,0,0.1)' }}>
-                                                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold', color: 'text.primary' }}>
-                                                    License Details
-                                                </Typography>
-                                                
-                                                {user.licenses && user.licenses.map(item => {
-                                                    if (!item || !item.expiry) {
-                                                        return null;
-                                                    }
-                                                    
-                                                    let expiry = Date.parse(item.expiry);
-                                                    let timeToExpire = expiry - Date.now();
-                                                    let durationOfLicense = Date.parse(item.expiry) - Date.parse(item.timestamp);
-                                                    let durationString = durationOfLicense / (60 * 60 * 24 * 1000);
-                                                    
-                                                    // Status for color coding
-                                                    const status = setChipLabel(timeToExpire);
-                                                    const statusColor = setColor(timeToExpire);
-                                                    const isExtended = setExtendedLabel(item.timestamp, item.expiry, item.product) === 'Extended';
-                                                    
-                                                    return (
-                                                        <Card 
-                                                            key={uuid()} 
-                                                            variant="outlined" 
-                                                            sx={{ 
-                                                                mb: 2, 
-                                                                backgroundColor: 'rgba(0,0,0,0.02)',
-                                                                borderColor: 'rgba(0,0,0,0.09)',
-                                                                position: 'relative',
-                                                                overflow: 'visible'
-                                                            }}
-                                                        >
+                                    pageSizeOptions={[10, 25, 50, 100]}
+                                    autoHeight
+                                    disableRowSelectionOnClick
+                                    density="standard"
+                                    sx={{
+                                        '& .MuiDataGrid-cell:focus': {
+                                            outline: 'none',
+                                        },
+                                        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                        borderRadius: 2
+                                    }}
+                                />
+                            </Box>
+                        ) : (
+                            // Card View
+                            <>
+                                {groupedUsers.map(user => {
+                                    if (!user || !user.email) return null;
+                                    
+                                    const isExpanded = expandedUsers[user.email] || false;
+                                    // Calculate license status for badge
+                                    const hasExpiring = user.licenses.some(lic => {
+                                        const expiry = Date.parse(lic.expiry);
+                                        const timeToExpire = expiry - Date.now();
+                                        return timeToExpire < (sixty_minutes * 2.0);
+                                    });
+                                    
+                                    // Count products
+                                    const productCount = user.products ? user.products.length : 0;
+                                    const licenseCount = user.licenses ? user.licenses.length : 0;
+                                    
+                                    return (
+                                        <Card 
+                                            key={uuid()} 
+                                            variant="outlined" 
+                                            sx={{ 
+                                                mb: 2, 
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                                borderLeft: hasExpiring ? '4px solid #f44336' : '4px solid #4caf50',
+                                                transition: 'all 0.2s ease-in-out',
+                                                '&:hover': {
+                                                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                                    transform: 'translateY(-2px)'
+                                                }
+                                            }}
+                                        >
+                                            <CardContent sx={{ py: 2 }}>
+                                                <Grid container alignItems="center" spacing={2}>
+                                                    <Grid item xs={12} md={5}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                             <Box 
                                                                 sx={{ 
-                                                                    position: 'absolute', 
-                                                                    top: -10, 
-                                                                    right: 16, 
-                                                                    zIndex: 2 
+                                                                    width: 40, 
+                                                                    height: 40, 
+                                                                    borderRadius: '50%', 
+                                                                    bgcolor: 'primary.light', 
+                                                                    display: 'flex', 
+                                                                    justifyContent: 'center', 
+                                                                    alignItems: 'center',
+                                                                    mr: 2,
+                                                                    color: 'white',
+                                                                    fontWeight: 'bold'
                                                                 }}
                                                             >
-                                                                <Chip 
-                                                                    variant="filled" 
-                                                                    size="small" 
-                                                                    color={statusColor}
-                                                                    label={status}
-                                                                    sx={{ fontWeight: 'bold' }}
-                                                                />
-                                                                {isExtended && (
-                                                                    <Chip 
-                                                                        variant="filled" 
-                                                                        size="small" 
-                                                                        color="info"
-                                                                        label="Extended"
-                                                                        sx={{ ml: 1, fontWeight: 'bold' }}
-                                                                    />
-                                                                )}
+                                                                {user.email.charAt(0).toUpperCase()}
                                                             </Box>
+                                                            <Typography 
+                                                                variant="body1" 
+                                                                sx={{ 
+                                                                    fontWeight: 'medium',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis'
+                                                                }}
+                                                            >
+                                                                {user.email}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Grid>
+                                                    
+                                                    <Grid item xs={12} md={5}>
+                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                                            {user.products && user.products.map(product => (
+                                                                <Chip 
+                                                                    key={product} 
+                                                                    label={product} 
+                                                                    size="small" 
+                                                                    variant="outlined"
+                                                                    color="secondary"
+                                                                />
+                                                            ))}
+                                                        </Box>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                                            {productCount} product{productCount !== 1 ? 's' : ''} • {licenseCount} license{licenseCount !== 1 ? 's' : ''}
+                                                        </Typography>
+                                                    </Grid>
+                                                    
+                                                    <Grid item xs={12} md={2} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                                                        <Button 
+                                                            aria-label={isExpanded ? 'Hide Details' : 'Show Details'}
+                                                            size="small"
+                                                            variant="contained"
+                                                            color={isExpanded ? "secondary" : "primary"}
+                                                            onClick={() => toggleUserExpand(user.email)}
+                                                            sx={{ 
+                                                                minWidth: 100,
+                                                                borderRadius: 8
+                                                            }}
+                                                        >
+                                                            {isExpanded ? 'Hide' : 'Show'}
+                                                        </Button>
+                                                    </Grid>
+                                                </Grid>
+                                                
+                                                <Collapse in={isExpanded}>
+                                                    <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid rgba(0,0,0,0.1)' }}>
+                                                        <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold', color: 'text.primary' }}>
+                                                            License Details
+                                                        </Typography>
+                                                        
+                                                        {user.licenses && user.licenses.map(item => {
+                                                            if (!item || !item.expiry) {
+                                                                return null;
+                                                            }
                                                             
-                                                            <CardContent sx={{ py: 2 }}>
-                                                                <Grid container spacing={2}>
-                                                                    <Grid item xs={12} sm={6} md={3}>
-                                                                        <Typography variant="caption" color="text.secondary">
-                                                                            Product
-                                                                        </Typography>
-                                                                        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                                                            {item.product}
-                                                                        </Typography>
-                                                                    </Grid>
+                                                            let expiry = Date.parse(item.expiry);
+                                                            let timeToExpire = expiry - Date.now();
+                                                            let durationOfLicense = Date.parse(item.expiry) - Date.parse(item.timestamp);
+                                                            let durationString = durationOfLicense / (60 * 60 * 24 * 1000);
+                                                            
+                                                            // Status for color coding
+                                                            const status = setChipLabel(timeToExpire);
+                                                            const statusColor = setColor(timeToExpire);
+                                                            const isExtended = setExtendedLabel(item.timestamp, item.expiry, item.product) === 'Extended';
+                                                            
+                                                            return (
+                                                                <Card 
+                                                                    key={uuid()} 
+                                                                    variant="outlined" 
+                                                                    sx={{ 
+                                                                        mb: 2, 
+                                                                        backgroundColor: 'rgba(0,0,0,0.02)',
+                                                                        borderColor: 'rgba(0,0,0,0.09)',
+                                                                        position: 'relative',
+                                                                        overflow: 'visible'
+                                                                    }}
+                                                                >
+                                                                    <Box 
+                                                                        sx={{ 
+                                                                            position: 'absolute', 
+                                                                            top: -10, 
+                                                                            right: 16, 
+                                                                            zIndex: 2 
+                                                                        }}
+                                                                    >
+                                                                        <Chip 
+                                                                            variant="filled" 
+                                                                            size="small" 
+                                                                            color={statusColor}
+                                                                            label={status}
+                                                                            sx={{ fontWeight: 'bold' }}
+                                                                        />
+                                                                        {isExtended && (
+                                                                            <Chip 
+                                                                                variant="filled" 
+                                                                                size="small" 
+                                                                                color="info"
+                                                                                label="Extended"
+                                                                                sx={{ ml: 1, fontWeight: 'bold' }}
+                                                                            />
+                                                                        )}
+                                                                    </Box>
                                                                     
-                                                                    <Grid item xs={12} sm={6} md={3}>
-                                                                        <Typography variant="caption" color="text.secondary">
-                                                                            Issued
-                                                                        </Typography>
-                                                                        <Typography variant="body2" color={setDateColor(item.timestamp)}>
-                                                                            {item.timestamp ? item.timestamp.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    
-                                                                    <Grid item xs={12} sm={6} md={3}>
-                                                                        <Typography variant="caption" color="text.secondary">
-                                                                            Expires
-                                                                        </Typography>
-                                                                        <Typography variant="body2" color={setDateColor(item.expiry)} sx={{ fontWeight: timeToExpire < sixty_minutes * 2 ? 'bold' : 'normal' }}>
-                                                                            {item.expiry ? item.expiry.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    
-                                                                    <Grid item xs={12} sm={6} md={3}>
-                                                                        <Typography variant="caption" color="text.secondary">
-                                                                            Duration
-                                                                        </Typography>
-                                                                        <Typography variant="body2">
-                                                                            {durationString.toFixed(2)} days
-                                                                        </Typography>
-                                                                    </Grid>
-                                                                    
-                                                                    <Grid item xs={12}>
-                                                                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                                                                            <Box sx={{ flex: 1, mr: 2 }}>
-                                                                                <LinearProgress 
-                                                                                    color={statusColor} 
-                                                                                    variant='determinate' 
-                                                                                    value={Math.min(100, (100 - timeToExpire/sixty_minutes*100))}
-                                                                                    sx={{ height: 8, borderRadius: 4 }}
-                                                                                />
-                                                                            </Box>
-                                                                            <Typography variant="caption" color="text.secondary">
-                                                                                {setExpiryLabel(timeToExpire)}
-                                                                            </Typography>
-                                                                        </Box>
-                                                                    </Grid>
-                                                                </Grid>
-                                                            </CardContent>
-                                                        </Card>
-                                                    );
-                                                })}
-                                            </Box>
-                                        </Collapse>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
+                                                                    <CardContent sx={{ py: 2 }}>
+                                                                        <Grid container spacing={2}>
+                                                                            <Grid item xs={12} sm={6} md={3}>
+                                                                                <Typography variant="caption" color="text.secondary">
+                                                                                    Product
+                                                                                </Typography>
+                                                                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                                                    {item.product}
+                                                                                </Typography>
+                                                                            </Grid>
+                                                                            
+                                                                            <Grid item xs={12} sm={6} md={3}>
+                                                                                <Typography variant="caption" color="text.secondary">
+                                                                                    Issued
+                                                                                </Typography>
+                                                                                <Typography variant="body2" color={setDateColor(item.timestamp)}>
+                                                                                    {item.timestamp ? item.timestamp.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
+                                                                                </Typography>
+                                                                            </Grid>
+                                                                            
+                                                                            <Grid item xs={12} sm={6} md={3}>
+                                                                                <Typography variant="caption" color="text.secondary">
+                                                                                    Expires
+                                                                                </Typography>
+                                                                                <Typography variant="body2" color={setDateColor(item.expiry)} sx={{ fontWeight: timeToExpire < sixty_minutes * 2 ? 'bold' : 'normal' }}>
+                                                                                    {item.expiry ? item.expiry.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
+                                                                                </Typography>
+                                                                            </Grid>
+                                                                            
+                                                                            <Grid item xs={12} sm={6} md={3}>
+                                                                                <Typography variant="caption" color="text.secondary">
+                                                                                    Duration
+                                                                                </Typography>
+                                                                                <Typography variant="body2">
+                                                                                    {durationString.toFixed(2)} days
+                                                                                </Typography>
+                                                                            </Grid>
+                                                                            
+                                                                            <Grid item xs={12}>
+                                                                                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                                                                                    <Box sx={{ flex: 1, mr: 2 }}>
+                                                                                        <LinearProgress 
+                                                                                            color={statusColor} 
+                                                                                            variant='determinate' 
+                                                                                            value={Math.min(100, (100 - timeToExpire/sixty_minutes*100))}
+                                                                                            sx={{ height: 8, borderRadius: 4 }}
+                                                                                        />
+                                                                                    </Box>
+                                                                                    <Typography variant="caption" color="text.secondary">
+                                                                                        {setExpiryLabel(timeToExpire)}
+                                                                                    </Typography>
+                                                                                </Box>
+                                                                            </Grid>
+                                                                        </Grid>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            );
+                                                        })}
+                                                    </Box>
+                                                </Collapse>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </>
+                        )}
                     </>
                 )}
             </Box>
-
-            {/* <Box sx={{ width: '100%' }}>
-            <DataGrid
-                rows={sortedData}
-                columns={columns}
-                getRowId={(row ) =>  row.email + row.product}
-                initialState={{
-                pagination: {
-                    paginationModel: {
-                    pageSize: 10,
-                    },
-                },
-                }}
-                pageSizeOptions={[5, 10, 25, 50]}
-                disableRowSelectionOnClick
-            />
-            </Box> */}
             </>)
     }
 }
-

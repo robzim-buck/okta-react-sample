@@ -37,20 +37,28 @@ const Navbar = () => {
           {authState.isAuthenticated && (
             <>
 
-          <Menu.Item id="logs-button">
-            <Link to="/apilogs">Logs</Link>
-          </Menu.Item>
 
-
-            <Menu.Item id="profile-button">
-              <Link to="/profile">Profile</Link>
-            </Menu.Item>
-
-
-
-            <Menu.Item id="active-licenses-button">
+          <Menu.Item id="active-licenses-button">
               <Link to="/activeselfservelicenses">Active Licenses</Link>
             </Menu.Item>
+
+
+
+            <Menu.Item id="adobe-users-button">
+              <Link to="/adobeusers">Adobe Users</Link>
+            </Menu.Item>
+            <Menu.Item id="adobe-groups-button">
+              <Link to="/adobegroups">Adobe Groups</Link>
+            </Menu.Item>
+
+
+
+          <Menu.Item id="compositemachineinfo-button">
+              <Link to="/compositemachineinfo">Composite Machine Info</Link>
+            </Menu.Item>
+
+
+
 
 
 
@@ -61,6 +69,14 @@ const Navbar = () => {
               <Link to="/returnselfservelicenses">Return Licenses</Link>
             </Menu.Item>
 
+            <Menu.Item id="logs-button">
+            <Link to="/apilogs">Logs</Link>
+          </Menu.Item>
+
+
+            <Menu.Item id="profile-button">
+              <Link to="/profile">Profile</Link>
+            </Menu.Item>
 
 
             <Menu.Item id="parsecleoreport-button">
@@ -75,9 +91,6 @@ const Navbar = () => {
             </Menu.Item>
 
 
-            <Menu.Item id="zendesktickets-button">
-              <Link to="/zendesktickets">Zendesk Tickets</Link>
-            </Menu.Item>
 
             <Menu.Item id="hammerspace-objectives-button">
               <Link to="/hammerspaceobjectives">Hammerspace Objectives</Link>
@@ -115,16 +128,19 @@ const Navbar = () => {
             </Menu.Item>
 
 
-
-            <Menu.Item id="ldap-users-button">
-              <Link to="/compositemachineinfo">Composite Machine Info</Link>
+            <Menu.Item id="salt-ping-button">
+              <Link to="/saltping">Salt Ping</Link>
             </Menu.Item>
 
 
-            <Menu.Item id="compositemachineinfo-button">
+
+            <Menu.Item id="ldap-users-button">
               <Link to="/ldapusers">LDAP Users</Link>
             </Menu.Item>
 
+            <Menu.Item id="zendesktickets-button">
+              <Link to="/zendesktickets">Zendesk Tickets</Link>
+            </Menu.Item>
 
 
             <Menu.Item id="logout-button" onClick={logout}>Logout</Menu.Item>

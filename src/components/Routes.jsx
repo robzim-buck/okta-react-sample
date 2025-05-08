@@ -37,7 +37,8 @@ import OktaUsers from './OktaUsers';
 import OktaGroups from './OktaGroups';
 import LDAPUsers from './LDAPUsers';
 import CompositeMachineInfo from './CompositeMachineInfo';
-
+import AdobeUsers from './AdobeUsers';
+import AdobeGroups from './AdobeGroups';
 
 
 const AppRoutes = () => {
@@ -51,13 +52,19 @@ const AppRoutes = () => {
       <Route path="/profile" element={<RequiredAuth/>}>
         <Route path="" element={<Profile/>}/>
       </Route>
+
+      <Route path="/adobeusers" element={<RequiredAuth/>}>
+        <Route path="" element={<AdobeUsers/>}/>
+      </Route>
+      <Route path="/adobegroups" element={<RequiredAuth/>}>
+        <Route path="" element={<AdobeGroups />}/>
+      </Route>
+
+
       <Route path="/apilogs" element={<RequiredAuth/>}>
         <Route path="" element={<APILogs/>}/>
       </Route>
-      <Route path="/salt_ping" element={<RequiredAuth/>}>
-        <Route path="" element={<SaltPing/>}/>
-      </Route>
-      <Route path="/salt_ping" element={<RequiredAuth/>}>
+      <Route path="/saltping" element={<RequiredAuth/>}>
         <Route path="" element={<SaltPing/>}/>
       </Route>
       <Route path="/activeselfservelicenses" element={<RequiredAuth/>}>

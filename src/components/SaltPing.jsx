@@ -58,7 +58,7 @@ export default function SaltPing(props) {
                             <Grid item xs={1} key={item.host}>
                                 <Grid container columns={1}>
                                    <Grid item xs={1}>
-                                        <Chip  color={item.up === "true" ? "success" : "error"} label={item.host}> </Chip>
+                                        <Chip  color={item.up === "true" ? "success" : "error"} label={item.host.replace('.buck.local', '')}> </Chip>
                                     </Grid>
                                     </Grid>
                             </Grid>

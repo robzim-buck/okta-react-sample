@@ -12,6 +12,7 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.0.2",
     "@mui/material": "^7.0.2",
+    "@mui/x-data-grid": "^8.2.0",
     "@mui/x-date-pickers": "^8.2.0",
     "@okta/okta-auth-js": "7.11.1",
     "@okta/okta-react": "^6.9.0",
