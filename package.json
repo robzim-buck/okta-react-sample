@@ -1,6 +1,6 @@
 {
-  "name": "okta-react-sample",
-  "version": "0.0.0",
+  "name": "buck-web-tools",
+  "version": "0.0.1",
   "private": true,
   "scripts": {
     "start": "vite --port 3000",
@@ -19,9 +19,11 @@
     "@tanstack/react-query": "^5.75.2",
     "axios": "^1.9.0",
     "dayjs": "^1.11.13",
+    "leaflet": "^1.9.4",
     "mui-datatables": "^4.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.4.1",
     "react-uuid": "^2.0.0",
     "semantic-ui-css": "^2.5.0",
@@ -49,5 +51,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "description": "web tools",
+  "main": "vite.config.js",
+  "author": "rz",
+  "license": "ISC"
 }

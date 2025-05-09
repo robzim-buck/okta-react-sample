@@ -195,8 +195,29 @@ export default function ActiveSelfServLicenses(props) {
         }
     }
 
-    if (activeLicenses.isLoading) return <CircularProgress></CircularProgress>;
-    if (activeLicenses.error) return "An error has occurred: " + activeLicenses.error.message;
+    if (activeLicenses.isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+    
+    if (activeLicenses.error) {
+        return (
+            <Box>
+                <Typography variant="h4" color="primary" gutterBottom>
+                    {props.name || 'Active Self Serve Licenses'}
+                </Typography>
+                <Paper sx={{ p: 3, bgcolor: '#fff5f5' }}>
+                    <Typography color="error" variant="h6" gutterBottom>An error occurred</Typography>
+                    <Typography color="text.secondary">
+                        {activeLicenses.error.message}
+                    </Typography>
+                </Paper>
+            </Box>
+        );
+    }
     if (activeLicenses.data) {
         console.log('Initial data:', typeof activeLicenses.data, Array.isArray(activeLicenses.data));
         console.log('Data sample:', JSON.stringify(activeLicenses.data).substring(0, 200));
@@ -375,8 +396,7 @@ export default function ActiveSelfServLicenses(props) {
         ];
 
         return (
-            <>
-            <Box sx={{ margin: 2 }}>
+            <Box>
                 <Typography variant='h4' color="primary" gutterBottom>
                     {activeLicenses.data.length ? props.name : 'No ' + props.name}
                 </Typography>
@@ -387,7 +407,8 @@ export default function ActiveSelfServLicenses(props) {
                         mb: 4, 
                         p: 2, 
                         backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                        borderRadius: 2
+                        borderRadius: 2,
+                        width: '100%'
                     }}
                 >
                     <Grid container spacing={3}>
@@ -588,6 +609,7 @@ export default function ActiveSelfServLicenses(props) {
                                     disableRowSelectionOnClick
                                     density="standard"
                                     sx={{
+                                        width: '100%',
                                         '& .MuiDataGrid-cell:focus': {
                                             outline: 'none',
                                         },
@@ -824,6 +846,6 @@ export default function ActiveSelfServLicenses(props) {
                     </>
                 )}
             </Box>
-            </>)
+        )
     }
 }

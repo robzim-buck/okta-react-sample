@@ -1,0 +1,7 @@
+- Config: Anthropic's AI configuration and setup parameters that define Claude's behavior and capabilities
+- React Query: use @tanstack/react-query to fetch data
+- @mui/material: use @mui/material for the user interface
+- Memoize data when possible
+- Never run npm start. Always assume the developer is running npm start in a terminal session.
+- In MUI grid components, never use the xs prop. Use the size prop instead.
+- Do not use the md prop in grid components. It has been deprecated and can be safely removed from project components.

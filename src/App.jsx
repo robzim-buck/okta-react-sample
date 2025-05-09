@@ -15,37 +15,49 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OktaAuth, toRelativeUrl } from '@okta/okta-auth-js';
 import { Security } from '@okta/okta-react';
-import { Container } from 'semantic-ui-react';
-import { Grid } from 'semantic-ui-react';
+import { Box, Container, Grid } from '@mui/material';
 import config from './config';
 import Navbar from './Navbar';
-// import Routes from './components/Routes';
 import AppRoutes from './components/Routes';
 
 const oktaAuth = new OktaAuth(config.oidc);
 
 const App = () => {
   const navigate = useNavigate();
-  const restoreOriginalUri = (_oktaAuth,  originalUri) => {
+  const restoreOriginalUri = (_oktaAuth, originalUri) => {
     navigate(toRelativeUrl(originalUri || '/', window.location.origin));
   };
 
   return (
-    <>
-      <Security oktaAuth={oktaAuth} restoreOriginalUri={restoreOriginalUri}>
-      <Container style={{marginTop: '7em', maxWidth: '50%'}} className="App">
-      <Grid >
-          <Grid.Row columns={16}>
-            <Grid.Column width={2}><Navbar/></Grid.Column>
-            <Grid.Column width={1}></Grid.Column>
-            <Grid.Column width={13}>
-              <AppRoutes/>
-            </Grid.Column>
-          </Grid.Row>
-          </Grid>
-      </Container>
+    <Security oktaAuth={oktaAuth} restoreOriginalUri={restoreOriginalUri}>
+      <Box sx={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+        <Box sx={{ 
+          width: '240px', 
+          flexShrink: 0, 
+          borderRight: '1px solid rgba(0, 0, 0, 0.12)',
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          zIndex: 100,
+          backgroundColor: '#ffffff'
+        }}>
+          <Box sx={{ height: '100vh', overflowY: 'auto' }}>
+            <Navbar />
+          </Box>
+        </Box>
+        
+        <Box sx={{ 
+          marginLeft: '240px', 
+          flexGrow: 1, 
+          p: 3, 
+          height: '100vh',
+          overflowY: 'auto'
+        }}>
+          <AppRoutes />
+        </Box>
+      </Box>
     </Security>
-    </>
   );
 };
 export default App;

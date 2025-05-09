@@ -11,10 +11,8 @@
  */
 
 import React from 'react';
-
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import 'semantic-ui-css/semantic.min.css';
 import App from './App';
 import './index.css';
 
@@ -23,13 +21,66 @@ import {
   QueryClientProvider
 } from "@tanstack/react-query";
 
-const queryClient = new QueryClient();
+// MUI Theme
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#9c27b0',
+    },
+    background: {
+      default: '#f5f5f5',
+    },
+  },
+  typography: {
+    fontFamily: [
+      '-apple-system',
+      'BlinkMacSystemFont',
+      '"Segoe UI"',
+      'Roboto',
+      '"Helvetica Neue"',
+      'Arial',
+      'sans-serif',
+    ].join(','),
+  },
+  components: {
+    MuiButton: {
+      defaultProps: {
+        disableElevation: true,
+      },
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
+  },
+});
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const container = document.getElementById('root');
 const root = createRoot(container);
 root.render(
   <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-          <App/>
-      </QueryClientProvider>
-  </BrowserRouter>);
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
+    </QueryClientProvider>
+  </BrowserRouter>
+);

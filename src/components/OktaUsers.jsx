@@ -1,562 +1,483 @@
-import { useState } from 'react';
-import { useQueries } from "@tanstack/react-query";
+import React, { useState, useMemo } from 'react';
 import { 
-  Typography, Box, Container, Grid,
-  Card, CardContent, Chip, Divider,
-  Paper, TextField, InputAdornment,
+  Typography, Container, Paper, Box, CircularProgress, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Avatar, Tooltip, IconButton, LinearProgress,
-  Collapse, Button, Skeleton
+  Avatar, Chip, Tooltip, TextField, InputAdornment, Switch, FormControlLabel,
+  Select, MenuItem, InputLabel, FormControl
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  ClearAll as ClearAllIcon,
-  Email as EmailIcon,
-  LocationCity as LocationCityIcon,
-  Person as PersonIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Badge as BadgeIcon,
-  Work as WorkIcon,
-  Event as EventIcon,
-  ContentCopy as ContentCopyIcon
-} from '@mui/icons-material';
-import uuid from 'react-uuid';
-import CircularProgress from '@mui/material/CircularProgress';
+import SearchIcon from '@mui/icons-material/Search';
+import { useOktaAuth } from '@okta/okta-react';
+import { useApiGet } from '../hooks/useApi';
 
 export default function OktaUsers(props) {
-  // State for search and expanded items
+  const { authState } = useOktaAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedUsers, setExpandedUsers] = useState({});
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [copiedText, setCopiedText] = useState('');
-  const [showOnlyActive, setShowOnlyActive] = useState(false);
+  const [showOnlyWithPhotos, setShowOnlyWithPhotos] = useState(false);
+  const [statusFilter, setStatusFilter] = useState(''); // Options: '' (all), 'ACTIVE', 'STAGED', etc.
+  const [showOnlyFreelancers, setShowOnlyFreelancers] = useState(false);
   
-  // Copy text to clipboard function
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        setCopiedText(text);
-        setTimeout(() => setCopiedText(''), 2000);
-      })
-      .catch(err => console.error('Failed to copy: ', err));
-  };
-  
-  // Fetch Okta users data
-  const [oktausers] = useQueries({
-    queries: [
-      {
-        queryKey: ["oktausers"],
-        queryFn: () =>
-        fetch("https://laxcoresrv.buck.local:8000/buckokta/category/att/comparison/match?_category=users").then((res) => res.json()),
-      }
-    ]
+  console.log("OktaUsers render - Auth state:", authState?.isAuthenticated);
+
+  // Fetch Okta users with React Query
+  const oktaUsersQuery = useApiGet('/buckokta/category/att/comparison/match', {
+    queryParams: { _category: 'users' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000
+    }
   });
 
-  // Toggle user expansion
-  const toggleUserExpand = (userId) => {
-    setExpandedUsers(prev => ({
-      ...prev,
-      [userId]: !prev[userId]
-    }));
-  };
+  // Fetch Google staff users with React Query
+  const googleStaffUsersQuery = useApiGet('/buckgoogleusers', {
+    queryParams: { status: 'active', emp_type: 'Staff' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000
+    }
+  });
 
-  // Toggle all expansions
-  const toggleAllExpand = () => {
-    setIsExpanded(!isExpanded);
+  // Fetch Google freelance users with React Query
+  const googleFreelanceUsersQuery = useApiGet('/buckgoogleusers', {
+    queryParams: { status: 'active', emp_type: 'Freelance' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000,
+      onSuccess: (data) => {
+        console.log("Google freelance users fetched successfully:", data.length);
+      }
+    },
+    dependencies: ['freelance'] // Add to query key to differentiate from staff query
+  });
+
+  // Combine and process Google users data
+  const googleUsers = useMemo(() => {
+    if (googleStaffUsersQuery.isLoading || googleFreelanceUsersQuery.isLoading) {
+      return [];
+    }
     
-    if (oktausers.data) {
-      const newExpandedState = {};
-      oktausers.data.forEach(user => {
-        newExpandedState[user.id] = !isExpanded;
-      });
-      setExpandedUsers(newExpandedState);
+    if (googleStaffUsersQuery.error || googleFreelanceUsersQuery.error) {
+      console.error("Error fetching Google users");
+      return [];
+    }
+
+    const staffData = googleStaffUsersQuery.data || [];
+    const freelanceData = googleFreelanceUsersQuery.data || [];
+    
+    // Combine both sets of users
+    const data = [...staffData, ...freelanceData];
+    console.log("Combined Google users:", data.length);
+    
+    // Process Google user data to normalize thumbnail URLs
+    const processedData = data.map(user => {
+      // Check for thumbnail in various possible property names
+      const thumbnailUrl = user?.thumbnailPhotoUrl || user?.thumbnail || user?.photo || user?.photoUrl;
+      
+      if (thumbnailUrl && !user.thumbnailPhotoUrl) {
+        // Add standardized property name if found in an alternative property
+        return { ...user, thumbnailPhotoUrl: thumbnailUrl };
+      }
+      
+      return user;
+    });
+    
+    // Count users with thumbnails
+    const usersWithThumbnails = processedData.filter(user => user.thumbnailPhotoUrl).length;
+    console.log(`Google users with thumbnails: ${usersWithThumbnails}`);
+    
+    return processedData;
+  }, [googleStaffUsersQuery.data, googleFreelanceUsersQuery.data, 
+      googleStaffUsersQuery.isLoading, googleFreelanceUsersQuery.isLoading,
+      googleStaffUsersQuery.error, googleFreelanceUsersQuery.error]);
+  
+  // Create Google user lookup by email
+  const googleUsersByEmail = useMemo(() => {
+    if (!googleUsers.length) return {};
+    
+    const emailMap = {};
+    
+    googleUsers.forEach(user => {
+      if (user?.primaryEmail) {
+        emailMap[user.primaryEmail.toLowerCase()] = user;
+        
+        // Also store by username part only (before the @) for flexible matching
+        const username = user.primaryEmail.split('@')[0].toLowerCase();
+        if (username) {
+          emailMap[username] = user;
+        }
+      }
+    });
+    
+    console.log(`Created Google user map with ${Object.keys(emailMap).length} entries`);
+    return emailMap;
+  }, [googleUsers]);
+  
+  // Helper function to get Google user for an Okta user
+  const getGoogleUserForOktaUser = (oktaUser) => {
+    if (!oktaUser?.profile?.email) return null;
+    
+    const email = oktaUser.profile.email.toLowerCase();
+    
+    // Try exact email match first
+    if (googleUsersByEmail[email]) {
+      return googleUsersByEmail[email];
+    }
+    
+    // Try username part only
+    const username = email.split('@')[0].toLowerCase();
+    if (username && googleUsersByEmail[username]) {
+      return googleUsersByEmail[username];
+    }
+    
+    return null;
+  };
+  
+  // Get user initials for avatar fallback
+  const getUserInitials = (user) => {
+    const firstName = user.profile?.firstName || '';
+    const lastName = user.profile?.lastName || '';
+    
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`.toUpperCase();
+    } else if (firstName) {
+      return firstName[0].toUpperCase();
+    } else if (lastName) {
+      return lastName[0].toUpperCase();
+    } else {
+      return 'U';
     }
   };
 
-  // Loading state
-  if (oktausers.isLoading) {
+  // Determine loading state
+  const isLoading = oktaUsersQuery.isLoading || 
+                    googleStaffUsersQuery.isLoading || 
+                    googleFreelanceUsersQuery.isLoading;
+
+  // Determine error state
+  const error = oktaUsersQuery.error ? 
+                "Failed to fetch Okta users" : 
+                (googleStaffUsersQuery.error && googleFreelanceUsersQuery.error) ? 
+                "Failed to fetch Google users" : null;
+
+  // Get the Okta users data
+  const oktaUsers = oktaUsersQuery.data || [];
+
+  if (isLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box>
         <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
           {props.name || 'Okta Users'}
         </Typography>
-        
-        {/* Search placeholder */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-          <Skeleton variant="rectangular" width={400} height={40} />
-          <Skeleton variant="rectangular" width={120} height={40} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+          <CircularProgress />
         </Box>
-        
-        {/* User card skeletons */}
-        <Grid container spacing={3}>
-          {[...Array(5)].map((_, index) => (
-            <Grid item xs={12} key={index}>
-              <Card variant="outlined">
-                <CardContent sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Skeleton variant="circular" width={40} height={40} />
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Skeleton variant="text" width="50%" />
-                      <Skeleton variant="text" width="70%" />
-                    </Box>
-                    <Skeleton variant="rectangular" width={100} height={24} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
+      </Box>
     );
   }
 
-  // Error state
-  if (oktausers.error) {
+  if (error) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box>
         <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
           {props.name || 'Okta Users'}
         </Typography>
         <Paper sx={{ p: 3, bgcolor: '#fff5f5' }}>
           <Typography color="error" variant="h6" gutterBottom>An error occurred</Typography>
           <Typography color="text.secondary">
-            {oktausers.error.message || JSON.stringify(oktausers.error)}
+            {error}
           </Typography>
         </Paper>
-      </Container>
+      </Box>
     );
   }
 
-  // Not found state
-  if (oktausers.data?.detail === "Not Found") {
-    return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
-          {props.name || 'Okta Users'}
+  return (
+    <Box>
+      <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
+        {props.name || 'Okta Users'}
+      </Typography>
+      
+      {authState ? (
+        <Alert severity={authState.isAuthenticated ? "success" : "warning"} sx={{ mb: 2 }}>
+          Authentication Status: {authState.isAuthenticated ? "Authenticated" : "Not Authenticated"}
+        </Alert>
+      ) : (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Authentication state is loading...
+        </Alert>
+      )}
+      
+      <Paper sx={{ p: 3, mb: 2 }}>
+        <Typography variant="h6" gutterBottom>Summary</Typography>
+        <Typography>
+          {oktaUsers.length > 0 
+            ? `Successfully loaded ${oktaUsers.length} Okta users and ${googleUsers.length} Google users.` 
+            : "No users found."}
         </Typography>
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" color="text.secondary">No user data found</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            The API returned a "Not Found" response.
-          </Typography>
-        </Paper>
-      </Container>
-    );
-  }
-
-  // Data processing
-  if (oktausers.data) {
-    // Apply filters (search + active)
-    let filteredUsers = oktausers.data;
-    
-    // Apply active filter if enabled
-    if (showOnlyActive) {
-      filteredUsers = filteredUsers.filter(user => user.status === 'ACTIVE');
-    }
-    
-    // Apply search filter
-    if (searchTerm) {
-      filteredUsers = filteredUsers.filter(user => {
-        const searchableFields = [
-          user.profile?.displayName,
-          user.profile?.firstName,
-          user.profile?.lastName,
-          user.profile?.login,
-          user.profile?.email,
-          user.profile?.title,
-          user.profile?.city,
-          user.profile?.description
-        ];
         
-        return searchableFields.some(field => 
-          field && field.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      });
-    }
-
-    // Get user initials for avatar
-    const getUserInitials = (user) => {
-      const firstName = user.profile?.firstName || '';
-      const lastName = user.profile?.lastName || '';
+        {oktaUsers.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+            {/* Status chips */}
+            {['ACTIVE', 'STAGED', 'PROVISIONED', 'DEPROVISIONED', 'SUSPENDED', 'RECOVERY', 'PASSWORD_EXPIRED'].map(status => {
+              const count = oktaUsers.filter(user => user.status === status).length;
+              if (count > 0) {
+                return (
+                  <Chip 
+                    key={status}
+                    label={`${count} ${status.charAt(0) + status.slice(1).toLowerCase()}`}
+                    color={status === 'ACTIVE' ? 'success' : 'default'}
+                    variant={statusFilter === status ? 'filled' : 'outlined'}
+                    size="small"
+                    onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                );
+              }
+              return null;
+            })}
+            
+            {/* Photo chip */}
+            <Chip 
+              label={`${googleUsers.filter(u => u.thumbnailPhotoUrl).length} Users with Photos`}
+              color="secondary" 
+              size="small"
+              variant={showOnlyWithPhotos ? 'filled' : 'outlined'}
+              onClick={() => setShowOnlyWithPhotos(!showOnlyWithPhotos)}
+              sx={{ cursor: 'pointer' }}
+            />
+            
+            {/* Freelancer chip */}
+            <Chip 
+              label={`${googleUsers.filter(u => 
+                u.organizations && 
+                u.organizations[0]?.costCenter && 
+                u.organizations[0].costCenter.toLowerCase() === 'freelance'
+              ).length} Freelancers`}
+              color="error" 
+              size="small"
+              variant={showOnlyFreelancers ? 'filled' : 'outlined'}
+              onClick={() => setShowOnlyFreelancers(!showOnlyFreelancers)}
+              sx={{ cursor: 'pointer' }}
+            />
+          </Box>
+        )}
+      </Paper>
       
-      if (firstName && lastName) {
-        return `${firstName[0]}${lastName[0]}`.toUpperCase();
-      } else if (firstName) {
-        return firstName[0].toUpperCase();
-      } else if (lastName) {
-        return lastName[0].toUpperCase();
-      } else {
-        return 'U';
-      }
-    };
-
-    // Format date strings
-    const formatDate = (dateString) => {
-      if (!dateString) return 'Never';
-      
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        });
-      } catch (e) {
-        return dateString.split('T')[0] || 'Invalid date';
-      }
-    };
-
-    return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        {/* Header */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-          <Typography variant='h4' color="primary" fontWeight="medium">
-            {props.name || 'Okta Users'}
-          </Typography>
-          
-          <Chip 
-            label={`${oktausers.data.length} Users`} 
-            color="primary" 
-            variant="outlined" 
-            sx={{ fontWeight: 'bold' }}
-          />
-        </Box>
-
-        {/* Search and expand controls */}
-        <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+      {oktaUsers.length > 0 && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <TextField
               placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
               size="small"
               sx={{ flexGrow: 1, maxWidth: 400 }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <SearchIcon fontSize="small" />
                   </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchTerm('')}>
-                      <ClearAllIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
                 )
               }}
             />
             
-            <Chip
-              label="Active Users Only"
-              color={showOnlyActive ? "primary" : "default"}
-              onClick={() => setShowOnlyActive(!showOnlyActive)}
-              variant={showOnlyActive ? "filled" : "outlined"}
-              sx={{ 
-                cursor: 'pointer',
-                '&:hover': {
-                  backgroundColor: showOnlyActive ? 'primary.light' : 'action.hover'
-                }
-              }}
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="status-filter-label">Status</InputLabel>
+              <Select
+                labelId="status-filter-label"
+                id="status-filter"
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="STAGED">Staged</MenuItem>
+                <MenuItem value="PROVISIONED">Provisioned</MenuItem>
+                <MenuItem value="DEPROVISIONED">Deprovisioned</MenuItem>
+                <MenuItem value="SUSPENDED">Suspended</MenuItem>
+                <MenuItem value="RECOVERY">Recovery</MenuItem>
+                <MenuItem value="PASSWORD_EXPIRED">Password Expired</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControlLabel
+              control={
+                <Switch 
+                  checked={showOnlyWithPhotos}
+                  onChange={(e) => setShowOnlyWithPhotos(e.target.checked)}
+                  color="secondary"
+                />
+              }
+              label="Show only users with photos"
+            />
+            
+            <FormControlLabel
+              control={
+                <Switch 
+                  checked={showOnlyFreelancers}
+                  onChange={(e) => setShowOnlyFreelancers(e.target.checked)}
+                  color="error"
+                />
+              }
+              label="Show only freelancers"
             />
           </Box>
-          
-          <Button 
-            variant="outlined" 
-            size="small"
-            onClick={toggleAllExpand}
-            startIcon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          >
-            {isExpanded ? 'Collapse All' : 'Expand All'}
-          </Button>
-        </Box>
-
-        {/* User cards */}
-        {filteredUsers.length === 0 ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>No users match your search</Typography>
-            <Button 
-              variant="outlined" 
-              onClick={() => setSearchTerm('')}
-              startIcon={<ClearAllIcon />}
-              sx={{ mt: 2 }}
-            >
-              Clear Search
-            </Button>
-          </Box>
-        ) : (
-          <Grid container spacing={3}>
-            {filteredUsers.map((user) => {
-              const isUserExpanded = expandedUsers[user.id] || false;
-              const initials = getUserInitials(user);
-              const lastLoginDate = formatDate(user.lastLogin);
-              const lastUpdatedDate = formatDate(user.lastUpdated);
-              const isActive = user.status === 'ACTIVE';
-              
-              return (
-                <Grid item xs={12} key={user.id || uuid()}>
-                  <Card 
-                    variant="outlined" 
-                    sx={{ 
-                      transition: 'all 0.2s ease-in-out',
-                      borderLeft: isActive ? '4px solid #4caf50' : '4px solid #9e9e9e',
-                      '&:hover': {
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                      }
-                    }}
-                  >
-                    <CardContent sx={{ p: 0 }}>
-                      {/* User summary */}
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'space-between',
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => toggleUserExpand(user.id)}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+        </Paper>
+      )}
+      
+      {oktaUsers.length > 0 && (() => {
+        // Apply filters
+        let filteredUsers = [...oktaUsers];
+        
+        // Apply search filter
+        if (searchTerm) {
+          filteredUsers = filteredUsers.filter(user => {
+            const searchableFields = [
+              user.profile?.displayName,
+              user.profile?.firstName,
+              user.profile?.lastName,
+              user.profile?.login,
+              user.profile?.email
+            ];
+            
+            return searchableFields.some(field => 
+              field && field.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+          });
+        }
+        
+        // Apply status filter
+        if (statusFilter) {
+          filteredUsers = filteredUsers.filter(user => 
+            user.status === statusFilter
+          );
+        }
+        
+        // Apply photo filter
+        if (showOnlyWithPhotos) {
+          filteredUsers = filteredUsers.filter(user => 
+            getGoogleUserForOktaUser(user)?.thumbnailPhotoUrl
+          );
+        }
+        
+        // Apply freelancer filter
+        if (showOnlyFreelancers) {
+          filteredUsers = filteredUsers.filter(user => {
+            const googleUser = getGoogleUserForOktaUser(user);
+            return googleUser && googleUser.organizations && 
+                  googleUser.organizations[0]?.costCenter && 
+                  googleUser.organizations[0].costCenter.toLowerCase() === 'freelance';
+          });
+        }
+        
+        return (
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredUsers.map((user) => {
+                const googleUser = getGoogleUserForOktaUser(user);
+                const isActive = user.status === 'ACTIVE';
+                
+                return (
+                  <TableRow key={user.id || user.profile?.login}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {googleUser?.thumbnailPhotoUrl ? (
+                          <Tooltip title={
+                            (googleUser.organizations && 
+                             googleUser.organizations[0]?.costCenter && 
+                             googleUser.organizations[0].costCenter.toLowerCase() === 'freelance') 
+                              ? 'Freelancer - Google profile photo' 
+                              : 'Google profile photo'
+                          }>
+                            <Avatar 
+                              src={googleUser.thumbnailPhotoUrl}
+                              sx={{ 
+                                width: 32, 
+                                height: 32,
+                                border: (googleUser.organizations && 
+                                        googleUser.organizations[0]?.costCenter && 
+                                        googleUser.organizations[0].costCenter.toLowerCase() === 'freelance')
+                                  ? '2px solid #f50057' 
+                                  : '2px solid #8c9eff',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}
+                            />
+                          </Tooltip>
+                        ) : (
                           <Avatar 
                             sx={{ 
                               bgcolor: isActive ? 'primary.main' : 'text.disabled',
-                              width: 40,
-                              height: 40
+                              width: 32, 
+                              height: 32 
                             }}
                           >
-                            {initials}
+                            {getUserInitials(user)}
                           </Avatar>
-                          
-                          <Box>
-                            <Typography variant="subtitle1">
-                              {user.profile?.displayName || `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {user.profile?.email || user.profile?.login || 'No login information'}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                          {user.profile?.title && (
+                        )}
+                        <Box>
+                          {user.profile?.displayName || 
+                            `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`}
+                          {(googleUser && 
+                           googleUser.organizations && 
+                           googleUser.organizations[0]?.costCenter && 
+                           googleUser.organizations[0].costCenter.toLowerCase() === 'freelance') && (
                             <Chip 
-                              icon={<WorkIcon fontSize="small" />}
-                              label={user.profile.title} 
+                              label="Freelance" 
                               size="small" 
+                              color="error" 
                               variant="outlined"
-                              sx={{ maxWidth: 200 }}
+                              sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
                             />
                           )}
-                          
-                          {user.profile?.city && (
-                            <Chip 
-                              icon={<LocationCityIcon fontSize="small" />}
-                              label={user.profile.city} 
-                              size="small" 
-                              variant="outlined"
-                            />
-                          )}
-                          
-                          <IconButton 
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleUserExpand(user.id);
-                            }}
-                          >
-                            {isUserExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                          </IconButton>
                         </Box>
                       </Box>
-                      
-                      {/* Expanded details */}
-                      <Collapse in={isUserExpanded}>
-                        <Divider />
-                        <Box sx={{ p: 2 }}>
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6} md={4}>
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                  Basic Information
-                                </Typography>
-                                <TableContainer component={Paper} variant="outlined" sx={{ boxShadow: 'none' }}>
-                                  <Table size="small">
-                                    <TableBody>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ fontWeight: 'medium' }}>First Name</TableCell>
-                                        <TableCell>{user.profile?.firstName || 'N/A'}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Last Name</TableCell>
-                                        <TableCell>{user.profile?.lastName || 'N/A'}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Email</TableCell>
-                                        <TableCell>
-                                          <Box sx={{ 
-                                            wordBreak: 'break-all', 
-                                            display: 'flex', 
-                                            alignItems: 'center',
-                                            gap: 0.5
-                                          }}>
-                                            {user.profile?.email || 'N/A'}
-                                            {user.profile?.email && (
-                                              <Tooltip title={copiedText === user.profile.email ? "Copied!" : "Copy to clipboard"}>
-                                                <IconButton 
-                                                  size="small" 
-                                                  onClick={() => copyToClipboard(user.profile.email)}
-                                                  color={copiedText === user.profile.email ? "success" : "default"}
-                                                >
-                                                  <ContentCopyIcon fontSize="small" />
-                                                </IconButton>
-                                              </Tooltip>
-                                            )}
-                                          </Box>
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Login</TableCell>
-                                        <TableCell>
-                                          <Box sx={{ 
-                                            wordBreak: 'break-all',
-                                            display: 'flex', 
-                                            alignItems: 'center',
-                                            gap: 0.5
-                                          }}>
-                                            {user.profile?.login || 'N/A'}
-                                            {user.profile?.login && (
-                                              <Tooltip title={copiedText === user.profile.login ? "Copied!" : "Copy to clipboard"}>
-                                                <IconButton 
-                                                  size="small" 
-                                                  onClick={() => copyToClipboard(user.profile.login)}
-                                                  color={copiedText === user.profile.login ? "success" : "default"}
-                                                >
-                                                  <ContentCopyIcon fontSize="small" />
-                                                </IconButton>
-                                              </Tooltip>
-                                            )}
-                                          </Box>
-                                        </TableCell>
-                                      </TableRow>
-                                    </TableBody>
-                                  </Table>
-                                </TableContainer>
-                              </Box>
-                            </Grid>
-                            
-                            <Grid item xs={12} sm={6} md={4}>
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                  Employment Details
-                                </Typography>
-                                <TableContainer component={Paper} variant="outlined" sx={{ boxShadow: 'none' }}>
-                                  <Table size="small">
-                                    <TableBody>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ fontWeight: 'medium' }}>Title</TableCell>
-                                        <TableCell>{user.profile?.title || 'N/A'}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Department</TableCell>
-                                        <TableCell>{user.profile?.department || 'N/A'}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>City</TableCell>
-                                        <TableCell>{user.profile?.city || 'N/A'}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Description</TableCell>
-                                        <TableCell>{user.profile?.description || 'N/A'}</TableCell>
-                                      </TableRow>
-                                    </TableBody>
-                                  </Table>
-                                </TableContainer>
-                              </Box>
-                            </Grid>
-                            
-                            <Grid item xs={12} sm={6} md={4}>
-                              <Box sx={{ mb: 2 }}>
-                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                  Account Status
-                                </Typography>
-                                <TableContainer component={Paper} variant="outlined" sx={{ boxShadow: 'none' }}>
-                                  <Table size="small">
-                                    <TableBody>
-                                      <TableRow>
-                                        <TableCell width="40%" sx={{ fontWeight: 'medium' }}>Status</TableCell>
-                                        <TableCell>
-                                          <Chip 
-                                            label={user.status || 'Unknown'} 
-                                            color={isActive ? 'success' : 'default'} 
-                                            size="small"
-                                            variant={isActive ? 'filled' : 'outlined'}
-                                          />
-                                        </TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Last Login</TableCell>
-                                        <TableCell>{lastLoginDate}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>Last Updated</TableCell>
-                                        <TableCell>{lastUpdatedDate}</TableCell>
-                                      </TableRow>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 'medium' }}>ID</TableCell>
-                                        <TableCell>
-                                          <Box sx={{ 
-                                            wordBreak: 'break-all', 
-                                            fontSize: '0.8rem', 
-                                            fontFamily: 'monospace',
-                                            display: 'flex', 
-                                            alignItems: 'center',
-                                            gap: 0.5
-                                          }}>
-                                            {user.id || 'N/A'}
-                                            {user.id && (
-                                              <Tooltip title={copiedText === user.id ? "Copied!" : "Copy to clipboard"}>
-                                                <IconButton 
-                                                  size="small" 
-                                                  onClick={() => copyToClipboard(user.id)}
-                                                  color={copiedText === user.id ? "success" : "default"}
-                                                >
-                                                  <ContentCopyIcon fontSize="small" />
-                                                </IconButton>
-                                              </Tooltip>
-                                            )}
-                                          </Box>
-                                        </TableCell>
-                                      </TableRow>
-                                    </TableBody>
-                                  </Table>
-                                </TableContainer>
-                              </Box>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      </Collapse>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        )}
-        
-        {/* Footer */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            Showing {filteredUsers.length} of {oktausers.data.length} users
-            {showOnlyActive && ' (Active only)'}
-            {searchTerm && ` • Search: "${searchTerm}"`}
-          </Typography>
-        </Box>
-      </Container>
-    );
-  }
-
-  // Default state (should not reach here)
-  return null;
+                    </TableCell>
+                    <TableCell>{user.profile?.email || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={user.status || 'Unknown'} 
+                        color={isActive ? 'success' : 'default'} 
+                        size="small"
+                        variant={isActive ? 'filled' : 'outlined'}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              {filteredUsers.length === oktaUsers.length ? (
+                `Showing all ${oktaUsers.length} users`
+              ) : (
+                <>
+                  Showing {filteredUsers.length} of {oktaUsers.length} users
+                  {statusFilter && ` (filtered by status: ${statusFilter})`}
+                  {searchTerm && ` (search: "${searchTerm}")`}
+                  {showOnlyWithPhotos && ` (with photos only)`}
+                  {showOnlyFreelancers && ` (freelancers only)`}
+                </>
+              )}
+            </Typography>
+          </Box>
+        </TableContainer>
+        );
+      })()}
+    </Box>
+  );
 }

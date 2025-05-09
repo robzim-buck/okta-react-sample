@@ -12,7 +12,16 @@
 
 import { useOktaAuth } from '@okta/okta-react';
 import React, { useState, useEffect } from 'react';
-import { Button, Header } from 'semantic-ui-react';
+import { 
+  Button, 
+  Typography, 
+  Box, 
+  Paper, 
+  CircularProgress,
+  Card,
+  CardContent,
+  Link
+} from '@mui/material';
 
 const Home = () => {
   const { authState, oktaAuth } = useOktaAuth();
@@ -33,66 +42,60 @@ const Home = () => {
     await oktaAuth.signInWithRedirect();
   };
 
-  const resourceServerExamples = [
-    {
-      label: 'Node/Express Resource Server Example',
-      url: 'https://github.com/okta/samples-nodejs-express-4/tree/master/resource-server',
-    },
-    {
-      label: 'Java/Spring MVC Resource Server Example',
-      url: 'https://github.com/okta/samples-java-spring/tree/master/resource-server',
-    },
-    {
-      label: 'ASP.NET Core Resource Server Example',
-      url: 'https://github.com/okta/samples-aspnetcore/tree/master/samples-aspnetcore-3x/resource-server',
-    },
-  ];
-
   if (!authState) {
     return (
-      <div>Loading...</div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '70vh' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <div>
-      <div>
-        <Header as="h1">Buck Web Tools</Header>
+    <Box>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
+        <Typography variant="h4" color="primary" gutterBottom>
+          Buck Web Tools
+        </Typography>
 
-        { authState.isAuthenticated && !userInfo
-        && <div>Loading user information...</div>}
-
-        {authState.isAuthenticated && userInfo
-        && (
-        <div>
-          <p>
-            Welcome back,&nbsp;
-            {userInfo.name}
-            !
-          </p>
-          <p>
-            Visit the
-            {' '}
-            <a href="/profile">My Profile</a>
-            {' '}
-            page to take a look inside the ID token.
-          </p>
-        </div>
+        {authState.isAuthenticated && !userInfo && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
         )}
 
-        {!authState.isAuthenticated
-        && (
-        <div>
-          {/* <p>
-            When you click the login button below, you will be redirected to the login page on your Okta org.
-            After you authenticate, you will be returned to this application with an ID token and access token.  These tokens will be stored in local storage and can be retrieved at a later time.
-          </p>
-          <Button id="login-button" primary onClick={login}>Login</Button> */}
-        </div>
+        {authState.isAuthenticated && userInfo && (
+          <Card variant="outlined" sx={{ mt: 2, maxWidth: 700 }}>
+            <CardContent>
+              <Typography variant="h6" color="primary" gutterBottom>
+                Welcome back, {userInfo.name}!
+              </Typography>
+              <Typography variant="body1">
+                Visit the <Link href="/profile">My Profile</Link> page to take a look inside the ID token.
+              </Typography>
+            </CardContent>
+          </Card>
         )}
 
-      </div>
-    </div>
+        {!authState.isAuthenticated && (
+          <Card variant="outlined" sx={{ mt: 2, maxWidth: 700 }}>
+            <CardContent>
+              <Typography variant="body1" gutterBottom>
+                Please log in to access Buck Web Tools.
+              </Typography>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={login} 
+                id="login-button"
+                sx={{ mt: 2 }}
+              >
+                Login
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </Paper>
+    </Box>
   );
 };
 export default Home;

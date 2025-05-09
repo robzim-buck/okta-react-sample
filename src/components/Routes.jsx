@@ -39,7 +39,13 @@ import LDAPUsers from './LDAPUsers';
 import CompositeMachineInfo from './CompositeMachineInfo';
 import AdobeUsers from './AdobeUsers';
 import AdobeGroups from './AdobeGroups';
+import ParsecUsers from './ParsecUsers';
+import GoogleUsers from './GoogleUsers';
+import OktaLocations from './OktaLocations';
+import OnboardNewUser from './OnboardNewUser';
 
+
+const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co"
 
 const AppRoutes = () => {
   return (
@@ -68,7 +74,7 @@ const AppRoutes = () => {
         <Route path="" element={<SaltPing/>}/>
       </Route>
       <Route path="/activeselfservelicenses" element={<RequiredAuth/>}>
-        <Route path="" element={<ActiveSelfServLicenses/>}/>
+        <Route path="" element={<ActiveSelfServLicenses name="Active Self Serve Licenses"/>}/>
       </Route>
       <Route path="/grantselfservelicenses" element={<RequiredAuth/>}>
         <Route path="" element={<GrantSelfServeLicenses name="Grant Licenses" />}/>
@@ -100,6 +106,9 @@ const AppRoutes = () => {
 
 
 
+      <Route path="/googleusers" element={<RequiredAuth/>}>
+        <Route path="" element={<GoogleUsers/>}/>
+      </Route>
 
       <Route path="/oktausers" element={<RequiredAuth/>}>
         <Route path="" element={<OktaUsers/>}/>
@@ -107,6 +116,19 @@ const AppRoutes = () => {
       <Route path="/oktagroups" element={<RequiredAuth/>}>
         <Route path="" element={<OktaGroups/>}/>
       </Route>
+
+      <Route path="/onboardnewuser" element={
+        <RequiredAuth allowedEmail={allowedEmails}>
+          <OnboardNewUser />
+        </RequiredAuth>
+      }/>
+
+
+      <Route path="/oktalocations" element={
+        <RequiredAuth allowedEmail={allowedEmails}>
+          <OktaLocations />
+        </RequiredAuth>
+      }/>
 
 
 
@@ -128,6 +150,12 @@ const AppRoutes = () => {
         <Route path="" element={<CompositeMachineInfo/>}/>
       </Route>
 
+
+      <Route path="/parsecusers" element={<RequiredAuth/>}>
+        <Route path="" element={<ParsecUsers name="Parsec" />}/>
+      </Route>
+
+
       <Route path="/parsecleoreport" element={<RequiredAuth/>}>
         <Route path="" element={<ParsecLeoReport/>}/>
       </Route>
@@ -138,14 +166,14 @@ const AppRoutes = () => {
 
 
       <Route path="/invoices" element={
-        <RequiredAuth allowedEmail="rob.zimmelman@buck.co,gsuite.holding@buck.co">
+        <RequiredAuth allowedEmail={allowedEmails}>
           <Invoices />
         </RequiredAuth>
       }/>
 
 
       <Route path="/salesorders" element={
-        <RequiredAuth allowedEmail="rob.zimmelman@buck.co,gsuite.holding@buck.co">
+        <RequiredAuth allowedEmail={allowedEmails}>
           <SalesOrders />
         </RequiredAuth>
       }/>

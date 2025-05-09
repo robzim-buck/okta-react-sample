@@ -12,7 +12,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useOktaAuth } from '@okta/okta-react';
-import { Header, Icon, Table } from 'semantic-ui-react';
+import { 
+  Typography, 
+  Box, 
+  Paper,
+  Table, 
+  TableContainer, 
+  TableHead, 
+  TableBody, 
+  TableRow, 
+  TableCell,
+  CircularProgress,
+  Card
+} from '@mui/material';
+import { Badge as BadgeIcon } from '@mui/icons-material';
 
 const Profile = () => {
   const { authState, oktaAuth } = useOktaAuth();
@@ -33,44 +46,54 @@ const Profile = () => {
 
   if (!userInfo) {
     return (
-      <div>
-        <p>Fetching user profile...</p>
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <div>
-      <div>
-        <Header as="h1">
-          <Icon name="drivers license" />
-          {' '}
-          User Profile (ID Token Claims)
-          {' '}
-        </Header>
-        <Table>
-          <thead>
-            <tr>
-              <th>Claim</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(userInfo).map((claimEntry) => {
-              const claimName = claimEntry[0];
-              const claimValue = claimEntry[1];
-              const claimId = `claim-${claimName}`;
-              return (
-                <tr key={claimName}>
-                  <td>{claimName}</td>
-                  <td id={claimId}>{claimValue.toString()}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </div>
-    </div>
+    <Box>
+      <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <BadgeIcon color="primary" sx={{ mr: 1, fontSize: 28 }} />
+          <Typography variant="h4" color="primary">
+            User Profile (ID Token Claims)
+          </Typography>
+        </Box>
+        
+        <TableContainer component={Card} variant="outlined">
+          <Table sx={{ minWidth: 650 }} size="small">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.04)' }}>
+                <TableCell sx={{ fontWeight: 'bold' }}>Claim</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Value</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {Object.entries(userInfo).map((claimEntry) => {
+                const claimName = claimEntry[0];
+                const claimValue = claimEntry[1];
+                const claimId = `claim-${claimName}`;
+                
+                return (
+                  <TableRow key={claimName} hover>
+                    <TableCell component="th" scope="row" sx={{ fontWeight: 'medium' }}>
+                      {claimName}
+                    </TableCell>
+                    <TableCell id={claimId}>
+                      {typeof claimValue === 'object' 
+                        ? JSON.stringify(claimValue) 
+                        : claimValue.toString()}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
   );
 };
 
