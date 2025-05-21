@@ -38,7 +38,11 @@ export default function OktaLocations(props) {
     const fetchOktaUsers = async () => {
       try {
         console.log("Fetching Okta users...");
-        const res = await fetch("https://laxcoresrv.buck.local:8000/buckokta/category/att/comparison/match?_category=users");
+        const res = await fetch('https://laxcoresrv.buck.local:8000/buckokta/category/att/comparison/match?_category=users', {
+          headers: {
+            'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+          }
+        });
         if (!res.ok) {
           throw new Error(`HTTP error! Status: ${res.status}`);
         }

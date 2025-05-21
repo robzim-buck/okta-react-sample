@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Typography, Container, Paper, Box, CircularProgress, Alert,
-  TextField, Button, Grid, Snackbar, MenuItem, Select, InputLabel,
-  FormControl, FormHelperText
-} from '@mui/material';
+// Import specific components for better tree shaking
+import Typography from '@mui/material/Typography';
+import Container from '@mui/material/Container';
+import Paper from '@mui/material/Paper';
+import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Grid from '@mui/material/Grid';
+import Snackbar from '@mui/material/Snackbar';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import InputLabel from '@mui/material/InputLabel';
+import FormControl from '@mui/material/FormControl';
+import FormHelperText from '@mui/material/FormHelperText';
 import { useOktaAuth } from '@okta/okta-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useApiGet } from '../hooks/useApi';
+import { useApiGet, useProtectedApiGet } from '../hooks/useApi';
 
 export default function OnboardNewUser() {
   const { authState } = useOktaAuth();
@@ -25,7 +36,7 @@ export default function OnboardNewUser() {
   const [emailStatus, setEmailStatus] = useState('idle'); // 'idle', 'checking', 'valid', 'invalid'
 
   // Fetch Okta users for email validation
-  const oktaUsersQuery = useApiGet('/buckokta/category/att/comparison/match', {
+  const oktaUsersQuery = useProtectedApiGet('/buckokta/category/att/comparison/match', {
     queryParams: { _category: 'users' },
     queryConfig: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -62,11 +73,11 @@ export default function OnboardNewUser() {
 
   // Function to check if a user exists by login
   const checkUserExists = async (login) => {
-    if (!login || !login.trim() || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(login)) {
+    if (!login || !login.trim()) {
       setEmailStatus('idle');
       setEmailValidated(false);
       setUserExists(false);
-      return false; // Don't check if login is empty or invalid
+      return false; // Don't check if login is empty
     }
 
     setCheckingUser(true);
@@ -179,10 +190,36 @@ export default function OnboardNewUser() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
+
+    let updatedFormData = {
+      ...formData,
       [name]: value
-    }));
+    };
+
+    // Automatically construct email and login when first or last name changes
+    if (name === 'firstName' || name === 'lastName') {
+      const firstName = name === 'firstName' ? value : formData.firstName;
+      const lastName = name === 'lastName' ? value : formData.lastName;
+
+      // Only update if both first and last name are available
+      if (firstName && lastName) {
+        // Create lowercase versions for email and login
+        const firstNameLower = firstName.toLowerCase();
+        const lastNameLower = lastName.toLowerCase();
+
+        // Construct email and login
+        const email = `${firstNameLower}.${lastNameLower}@buck.co`;
+        const login = `${firstNameLower}.${lastNameLower}`;
+
+        updatedFormData = {
+          ...updatedFormData,
+          email: email,
+          login: login
+        };
+      }
+    }
+
+    setFormData(updatedFormData);
 
     // Clear validation error when field is edited
     if (errors[name]) {
@@ -192,9 +229,12 @@ export default function OnboardNewUser() {
       }));
     }
 
-    // Check if user exists when login field changes
-    if (name === 'login' && value.trim() !== '') {
-      debouncedCheckUser(value);
+    // Check if user exists when email field changes
+    if ((name === 'email' && value.trim() !== '') ||
+        (name === 'firstName' || name === 'lastName')) {
+      if (updatedFormData.email && updatedFormData.email.trim() !== '') {
+        debouncedCheckUser(updatedFormData.email);
+      }
     }
   };
 
@@ -213,14 +253,12 @@ export default function OnboardNewUser() {
       newErrors.email = 'Email is required';
     } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(formData.email)) {
       newErrors.email = 'Invalid email address';
+    } else if (userExists) {
+      newErrors.email = 'This user already exists. Please use a different name.';
     }
 
     if (!formData.login.trim()) {
       newErrors.login = 'Login is required';
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(formData.login)) {
-      newErrors.login = 'Login must be a valid email address';
-    } else if (userExists) {
-      newErrors.login = 'This user already exists. Please use a different login.';
     }
 
     if (!formData.mobilePhone.trim()) {
@@ -232,7 +270,7 @@ export default function OnboardNewUser() {
     setErrors(newErrors);
     // Only allow form submission if there are no errors and email is either empty or validated as unique
     return Object.keys(newErrors).length === 0 &&
-           (formData.login.trim() === '' || (emailValidated && emailStatus === 'valid')) &&
+           (formData.email.trim() === '' || (emailValidated && emailStatus === 'valid')) &&
            !checkingUser;
   };
 
@@ -336,32 +374,19 @@ export default function OnboardNewUser() {
             </Grid>
             
             <Grid item size={12}>
-              <TextField
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                error={!!errors.email}
-                helperText={errors.email}
-                required
-              />
-            </Grid>
-
-            <Grid item size={12}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
-                  label="Login (Username - must be email format)"
-                  name="login"
-                  value={formData.login}
+                  label="Email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
                   onChange={handleChange}
-                  error={!!errors.login || emailStatus === 'invalid'}
+                  error={!!errors.email || emailStatus === 'invalid'}
                   helperText={
                     emailStatus === 'invalid'
-                      ? "This user already exists. Please use a different login."
-                      : (errors.login || "Login must be a valid email address")
+                      ? "This user already exists. Please use a different name."
+                      : (errors.email || "Email generated from first.last@buck.co")
                   }
                   required
                   InputProps={{
@@ -384,24 +409,40 @@ export default function OnboardNewUser() {
                     }
                   }}
                 />
-                {!checkingUser && emailValidated && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      right: 12,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      backgroundColor: emailStatus === 'valid' ? 'success.main' : 'error.main',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 1
-                    }}
-                  />
-                )}
+              </Box>
+            </Grid>
+
+            <Grid item size={12}>
+              <Box sx={{ position: 'relative' }}>
+                <TextField
+                  fullWidth
+                  label="Login (Username - automatically generated from name)"
+                  name="login"
+                  value={formData.login}
+                  onChange={handleChange}
+                  error={!!errors.login}
+                  helperText={errors.login || "Username generated from first.last"}
+                  required
+                  InputProps={{
+                    endAdornment: checkingUser && (
+                      <CircularProgress size={20} sx={{ marginRight: 1 }} />
+                    ),
+                    sx: {
+                      ...(emailStatus === 'valid' && {
+                        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(46, 125, 50, 0.15)'
+                        }
+                      }),
+                      ...(emailStatus === 'invalid' && {
+                        backgroundColor: 'rgba(211, 47, 47, 0.1)',
+                        '&:hover': {
+                          backgroundColor: 'rgba(211, 47, 47, 0.15)'
+                        }
+                      })
+                    }
+                  }}
+                />
               </Box>
             </Grid>
 

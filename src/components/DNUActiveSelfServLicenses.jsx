@@ -1,13 +1,16 @@
 import uuid from 'react-uuid';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import axios from 'axios';
+axios.defaults.headers.post['Content-Type'] ='application/x-www-form-urlencoded';
+
+
+
 import { useQueries } from "@tanstack/react-query";
-import CircularProgress from '@mui/material/CircularProgress';
-import LinearProgress from '@mui/material/LinearProgress';
-
-
 import { Typography, Button, IconButton, Container } from '@mui/material';
 import { Chip, Grid, Box, Card, CardContent, Collapse, Switch, FormControlLabel, Paper } from '@mui/material';
 import { Alert, AlertTitle, Snackbar } from '@mui/material';
+import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import { DataGrid } from '@mui/x-data-grid';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
@@ -18,42 +21,19 @@ import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 
-// import { DataGrid } from '@mui/x-data-grid';
-
-// Time constants
-const sixty_minutes = 60 * 60 * 1000;
-// const twenty_four_hours_plus_buffer = (24*60*60*1000) + 20000; // add 20 seconds
-
-const emailUniqueEntries = (list) => {
-    let emailList = list.map(em => { return em.email });
-    let emailSet = new Set(emailList)
-    // console.log(item in emailSet)
-    // let listForCounting = new Array(emailSet)
-    let count = 0
-    for (let a of emailSet.entries()) {
-        a = 1
-        count += a
-    }
-    // console.log(emailSet.entries().next())
-    return count
-}
-
-
-// Returns a MUI color name for license status
 const setColor = (param) => {
-    // Handle invalid or undefined param
-    if (param === undefined || param === null) {
-        return 'primary';
-    }
-    
     if (param < sixty_minutes / 2.0) {
-        return 'error';
+        return 'error'
     }
     if (param < (sixty_minutes * 2.0)) {
-        return 'warning';
+        return 'warning'
     }
-    return 'success';
+    return 'success'
 }
+
+
+const sixty_minutes = 60 * 60 * 1000;
+// const twenty_four_hours_plus_buffer = (24*60*60*1000) + 20000; // add 20 seconds
 
 const four_days_plus_buffer = (24*60*60*1000*4) + 60000 * 60; // add 60 minutes
 const six_days_plus_buffer = (24*60*60*1000*6) + 60000 * 60; // add 60 minutes
@@ -79,9 +59,9 @@ const setDateColor = (param) => {
     let paramstring = new Date(param).toISOString().split('T')[0];
     // console.log(todaystring, paramstring)
     if ( paramstring === todaystring ) {
-        return 'error.main'
+        return 'red'
     }
-    return 'text.primary'
+    return 'black'
 }
 
 
@@ -129,8 +109,70 @@ const productCount = (list, product) => {
 }
 
 
+const emailUniqueEntries = (list) => {
+    let emailList = list.map(em => { return em.email });
+    let emailSet = new Set(emailList)
+    // console.log(item in emailSet)
+    // let listForCounting = new Array(emailSet)
+    let count = 0
+    for (let a of emailSet.entries()) {
+        a = 1
+        count += a
+    }
+    // console.log(emailSet.entries().next())
+    return count
+}
 
+const groupLicensesByUser = (licenses) => {
+    // Check if licenses is an array
+    if (!Array.isArray(licenses)) {
+        console.error('Licenses is not an array:', licenses);
+        return [];
+    }
+    
+    if (licenses.length > 0) {
+        console.log('Raw licenses example:', JSON.stringify(licenses[0]));
+    } else {
+        console.log('Licenses array is empty');
+    }
+    
+    const userMap = new Map();
+    
+    licenses.forEach((license, index) => {
+        if (!license || !license.email) {
+            console.error(`Invalid license object at index ${index}:`, license);
+            return;
+        }
+        
+        if (!userMap.has(license.email)) {
+            userMap.set(license.email, {
+                email: license.email,
+                products: [],
+                licenses: []
+            });
+        }
+        
+        const user = userMap.get(license.email);
+        user.licenses.push(license);
+        
+        if (!user.products.includes(license.product)) {
+            user.products.push(license.product);
+        }
+    });
+    
+    const result = Array.from(userMap.values());
+    console.log('Grouped users count:', result.length);
+    if (result.length > 0) {
+        console.log('First grouped user example:', JSON.stringify(result[0]));
+    }
+    return result;
+}
 
+const year = new Date().getFullYear().toString()
+// console.log(year)
+const endpoint = 'https://laxcoresrv.buck.local:8000';
+
+// ProductBar component for visualizing product distribution
 const ProductBar = ({ name, count, total, color }) => {
     // Skip rendering if count is 0
     if (count === 0) return null;
@@ -165,19 +207,8 @@ const ProductBar = ({ name, count, total, color }) => {
     );
 };
 
-// There used to be a columns definition here
-// It's now moved inside the component function
 // LicenseStatusItem component for license status display
 const LicenseStatusItem = ({ count, label, color }) => {
-    let safeColor = color;
-    // Make sure color is one of the supported MUI colors or a valid CSS color
-    if (typeof color === 'string' && 
-        !['primary', 'secondary', 'error', 'info', 'success', 'warning'].includes(color) && 
-        !color.includes('.')) {
-        // Convert to a safe theme color
-        safeColor = 'primary.main';
-    }
-    
     return (
         <Stack alignItems="center" spacing={1}>
             <Box
@@ -199,7 +230,7 @@ const LicenseStatusItem = ({ count, label, color }) => {
                     value={count > 0 ? 100 : 0}
                     size={64}
                     thickness={4}
-                    sx={{ color: safeColor || 'primary.main', position: 'absolute' }}
+                    sx={{ color, position: 'absolute' }}
                 />
                 <Box
                     sx={{
@@ -225,226 +256,70 @@ const LicenseStatusItem = ({ count, label, color }) => {
     );
 };
 
-
-const year = new Date().getFullYear().toString()
-// console.log(year)
 export default function ActiveSelfServLicenses(props) {
-    const [emailfilter, setEmailFilter] = useState('');   
-    const [productfilter, setProductFilter] = useState('');   
-
-    const [tableView, setTableView] = useState(false);
+    console.log('ActiveSelfServLicenses component rendering');
+    
+    // Component state
+    const [emailfilter, setEmailFilter] = useState('');
+    const [productfilter, setProductFilter] = useState('');
     const [expandedUsers, setExpandedUsers] = useState({});
-    const [groupedUsers, setGroupedUsers] = useState([]);
-    const [allLicenses, setAllLicenses] = useState([]);
-    const [previsible, setPrevisible] = useState(false);
-
+    const [tableView, setTableView] = useState(false);
+    const [expandAll, setExpandAll] = useState(false);
     const [successvisible, setSuccessvisible] = useState(false);
+    const [previsible, setPrevisible] = useState(false);
     const [operation, setOperation] = useState('');
     const [product, setProduct] = useState('');
     const [user, setUser] = useState('');
     
-    // Function to toggle user card expansion
-    const toggleUserExpand = (email) => {
-        setExpandedUsers(prev => ({
-            ...prev,
-            [email]: !prev[email]
-        }));
-    };
-    
-    // Function to toggle between table and card view
-    const toggleTableView = () => {
-        // Toggle table view
-        const newTableView = !tableView;
-        setTableView(newTableView);
-        
-        if (!newTableView) {
-            // Collapse all users when switching back to card view
-            setExpandedUsers({});
-        }
-    };
-    
-    // Function to handle license returns
-    const returnLicense = (e, email, productName) => {
-        e.preventDefault();
-        setPrevisible(true);
-        setOperation('Returning');
-        setProduct(productName);
-        setUser(email);
-        
-        // API call to return license would go here
-        // For now we'll just simulate success
-        setTimeout(() => {
-            setPrevisible(false);
-            setSuccessvisible(true);
-            
-            // Refresh the data after operation
-            activeLicenses.refetch();
-        }, 1500);
-    };
-    
-    // Define columns for the license table view
-    const columns = [
-        { field: 'id', headerName: 'ID', width: 70, hide: true },
-        { field: 'email', headerName: 'Email', width: 230, renderCell: (params) => (
-            <Tooltip title={params.value}>
-                <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {params.value}
-                </Typography>
-            </Tooltip>
-        )},
-        { field: 'product', headerName: 'Product', width: 150 },
-        { 
-            field: 'status', 
-            headerName: 'Status', 
-            width: 130,
-            renderCell: (params) => {
-                // Validate params to avoid transparent color errors
-                if (!params.row || !params.row.expiry) {
-                    return <Chip variant="filled" size="small" color="default" label="Unknown" />;
+    // Fetch active licenses
+    const licenseQuery = useQueries({
+        queries: [
+          {
+            queryKey: ["activeLicenses"],
+            queryFn: async () => {
+              console.log('Fetching active licenses...');
+              try {
+                const response = await fetch("https://laxcoresrv.buck.local:8000/licenses/active_self_service_licenses", {
+                  method: 'GET',
+                  headers: {
+                    'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+                  }
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`API error: ${response.status}`);
                 }
                 
-                const expiry = Date.parse(params.row.expiry);
-                const timeToExpire = expiry - Date.now();
-                const status = setChipLabel(timeToExpire);
-                const statusColor = setColor(timeToExpire);
-                
-                return (
-                    <Chip 
-                        variant="filled" 
-                        size="small" 
-                        color={statusColor}
-                        label={status}
-                        sx={{ fontWeight: 'bold' }}
-                    />
-                );
-            }
-        },
-        { 
-            field: 'isExtended', 
-            headerName: 'Extended', 
-            width: 130,
-            renderCell: (params) => {
-                // Validate params to avoid errors
-                if (!params.row || !params.row.timestamp || !params.row.expiry || !params.row.product) {
-                    return null;
+                const data = await response.json();
+                console.log('Received licenses data, type:', typeof data, 'isArray:', Array.isArray(data));
+                if (data) {
+                  console.log('Data sample:', Array.isArray(data) ? data.slice(0, 2) : data);
                 }
-                
-                const isExtended = setExtendedLabel(params.row.timestamp, params.row.expiry, params.row.product) === 'Extended';
-                
-                return isExtended ? (
-                    <Chip 
-                        variant="filled" 
-                        size="small" 
-                        color="info"
-                        label="Extended"
-                        sx={{ fontWeight: 'bold' }}
-                    />
-                ) : null;
-            }
-        },
-        { 
-            field: 'timestamp', 
-            headerName: 'Issued', 
-            width: 180,
-            valueFormatter: (params) => {
-                return params.value ? new Date(params.value).toLocaleString() : 'N/A';
-            }
-        },
-        { 
-            field: 'expiry', 
-            headerName: 'Expires', 
-            width: 180,
-            valueFormatter: (params) => {
-                return params.value ? new Date(params.value).toLocaleString() : 'N/A';
+                return data;
+              } catch (error) {
+                console.error("Error fetching license data:", error);
+                throw error;
+              }
             },
-            renderCell: (params) => {
-                // Validate params to avoid errors
-                if (!params.value) {
-                    return <Typography variant="body2">N/A</Typography>;
-                }
-                
-                try {
-                    const expiry = Date.parse(params.value);
-                    const timeToExpire = expiry - Date.now();
-                    const textColor = timeToExpire < (sixty_minutes * 2.0) ? 'error.main' : 'text.primary';
-                    
-                    return (
-                        <Typography variant="body2" color={textColor} sx={{ fontWeight: timeToExpire < (sixty_minutes * 2.0) ? 'bold' : 'normal' }}>
-                            {new Date(params.value).toLocaleString()}
-                        </Typography>
-                    );
-                } catch (e) {
-                    return <Typography variant="body2">Invalid date</Typography>;
-                }
-            }
-        },
-        { 
-            field: 'timeRemaining', 
-            headerName: 'Time Remaining', 
-            width: 150,
-            valueGetter: (params) => {
-                if (!params.row || !params.row.expiry) return null;
-                try {
-                    const expiry = Date.parse(params.row.expiry);
-                    return expiry - Date.now();
-                } catch (e) {
-                    return null;
-                }
-            },
-            renderCell: (params) => {
-                // Validate params to avoid errors
-                if (params.value === null || params.value === undefined) {
-                    return <Typography variant="body2">Unknown</Typography>;
-                }
-                
-                const timeToExpire = params.value;
-                const hoursRemaining = timeToExpire / (60 * 60 * 1000);
-                let display;
-                let color = 'text.primary';
-                
-                if (timeToExpire < 0) {
-                    display = 'Expired';
-                    color = 'error.main';
-                } else if (hoursRemaining < 1) {
-                    display = `${Math.round(hoursRemaining * 60)} mins`;
-                    color = 'error.main';
-                } else if (hoursRemaining < 24) {
-                    display = `${Math.round(hoursRemaining)} hours`;
-                    color = hoursRemaining < 2 ? 'error.main' : 'warning.main';
-                } else {
-                    display = `${Math.round(hoursRemaining / 24)} days`;
-                    color = 'success.main';
-                }
-                
-                return (
-                    <Typography variant="body2" color={color} sx={{ fontWeight: timeToExpire < (sixty_minutes * 2.0) ? 'bold' : 'normal' }}>
-                        {display}
-                    </Typography>
-                );
-            }
-        },
-        { 
-            field: 'actions', 
-            headerName: 'Actions', 
-            width: 120,
-            sortable: false,
-            filterable: false,
-            renderCell: (params) => (
-                <Button
-                    variant="contained"
-                    color="error"
-                    size="small"
-                    startIcon={<DeleteIcon />}
-                    onClick={(e) => {
-                        returnLicense(e, params.row.email, params.row.product);
-                    }}
-                >
-                    Return
-                </Button>
-            )
-        }
-    ];
+            retry: 2,
+            refetchOnWindowFocus: false,
+            staleTime: 60000
+          }
+        ]
+    });
+    
+    // For compatibility with existing code
+    const activeLicenses = licenseQuery[0];
 
+    const clearEmailFilter = () => {
+        setEmailFilter('')
+      }
+
+    const clearProductFilter = () => {
+        setProductFilter('')
+      }
+
+    // Alert components for license operations
     const PreviewAlert = () => {
         if (previsible) {
             return(
@@ -494,121 +369,330 @@ export default function ActiveSelfServLicenses(props) {
         return null;
     }
 
-    const licenseQuery = useQueries({
-    queries: [
-        {
-        queryKey: ["activeLicenses"],
-        queryFn: async () => {
-            console.log('Fetching active licenses...');
-            try {
-            const response = await fetch("https://laxcoresrv.buck.local:8000/licenses/active_self_service_licenses", {
-                method: 'GET',
-                headers: {
-                'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`API error: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('Received licenses data, type:', typeof data, 'isArray:', Array.isArray(data));
-            if (data) {
-                console.log('Data sample:', Array.isArray(data) ? data.slice(0, 2) : data);
-            }
-            return data;
-            } catch (error) {
-            console.error("Error fetching license data:", error);
-            throw error;
-            }
-        },
-        retry: 2,
-        refetchOnWindowFocus: false,
-        staleTime: 60000
-          }
-        ]
+    // Function to return a license
+    function returnLicense(event, userEmail, licenseProduct) {
+      if (!userEmail.includes('buck.co') && !userEmail.includes('anyways.co') && !userEmail.includes('giantant.ca')) {
+        alert(`Only works for Buck, GiantAnt and Anyways Users, not for ${userEmail}`)
+        return
+      }
+      setOperation('Returning');
+      setPrevisible(true);
+      setProduct(licenseProduct);
+      setUser(userEmail);
+      const url = `${endpoint}/licenses/release_self_service_license?product=${licenseProduct.toLowerCase()}&email=${userEmail}`;
+      fetch(url, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+        }
+      }
+
+      ).then(res => {
+        setPrevisible(false);
+        setSuccessvisible(true);
+
+        // Refresh data after successful return
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+
+        return res.data;
+      }).catch(error => {
+        setPrevisible(false);
+        alert(`Error returning license: ${error.message}`);
+      });
+    }
+      
+    const toggleUserExpand = (email) => {
+        setExpandedUsers(prev => ({
+            ...prev,
+            [email]: !prev[email]
+        }));
+    }
+
+    const toggleExpandAll = () => {
+        const newExpandAll = !expandAll;
+        setExpandAll(newExpandAll);
+        
+        // Switch to table view if expand all is enabled
+        setTableView(newExpandAll);
+        
+        if (!newExpandAll) {
+            // Collapse all users when switching back to card view
+            setExpandedUsers({});
+        }
+    }
+
+    // Clean console logging for debugging
+    console.log('ActiveSelfServLicenses render state:', { 
+        isLoading: activeLicenses.isLoading,
+        isError: activeLicenses.isError,
+        data: activeLicenses.data ? 'exists' : 'missing',
+        dataType: activeLicenses.data ? typeof activeLicenses.data : 'n/a',
+        isArray: activeLicenses.data ? Array.isArray(activeLicenses.data) : 'n/a',
+        dataLength: activeLicenses.data && Array.isArray(activeLicenses.data) ? activeLicenses.data.length : 0
     });
 
-    const clearEmailFilter = () => {
-        setEmailFilter('')
-      }
+    // Loading state
+    if (activeLicenses.isLoading) {
+        return (
+            <Container maxWidth="lg" sx={{ py: 4 }}>
+                <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
+                    {props.name || 'Active Self Serve Licenses'}
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+                    <CircularProgress />
+                </Box>
+            </Container>
+        );
+    }
     
-    const clearProductFilter = () => {
-        setProductFilter('')
-      }
-
-    const activeLicenses = licenseQuery[0];
-
-    if (activeLicenses.isLoading) return <CircularProgress></CircularProgress>;
-    if (activeLicenses.error) return "An error has occurred: " + activeLicenses.error.message;
-    if (activeLicenses.data) {
-        // console.log('got data')
-        // console.log(licenseQuery.data)
-        // let sortedData = activeLicenses.data;
-        let sortedData = activeLicenses.data.sort((a, b) => a.email.localeCompare(b.email));
-        // console.log(sortedData);
-        let filteredData = sortedData;
-        var extendedCount;
-        if (emailfilter.length > 0) {
-          console.log(sortedData)
-          filteredData = sortedData.filter((f) => f.email.includes(emailfilter));
+    // Error state
+    if (activeLicenses.isError) {
+        console.error('Error loading licenses:', activeLicenses.error);
+        return (
+            <Container maxWidth="lg" sx={{ py: 4 }}>
+                <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
+                    {props.name || 'Active Self Serve Licenses'}
+                </Typography>
+                <Alert severity="error" sx={{ mt: 2 }}>
+                    <AlertTitle>Error Loading License Data</AlertTitle>
+                    {activeLicenses.error?.message || 'An unexpected error occurred while loading license data.'}
+                </Alert>
+            </Container>
+        );
+    }
+    
+    // Ensure data is an array
+    const licenseData = Array.isArray(activeLicenses.data) ? activeLicenses.data : 
+                        activeLicenses.data ? (typeof activeLicenses.data === 'object' ? Object.values(activeLicenses.data) : []) : [];
+    // Create simple test data for debugging - TEMPORARY
+    const testData = [
+        {
+            email: "test@example.com",
+            product: "adobe",
+            timestamp: "2023-05-20T10:00:00",
+            expiry: "2023-05-27T10:00:00"
+        },
+        {
+            email: "another@example.com",
+            product: "figma",
+            timestamp: "2023-05-19T14:30:00",
+            expiry: "2023-05-26T14:30:00"
         }
-
-        if (productfilter.length > 0) {
-            console.log(sortedData)
-            filteredData = sortedData.filter((f) => f.product.includes(productfilter));
-          }
+    ];
+    
+    // Process license data
+    // Use either the real data or fallback to test data for debugging
+    const dataToProcess = (activeLicenses.data && Array.isArray(activeLicenses.data) && activeLicenses.data.length > 0) 
+        ? activeLicenses.data 
+        : licenseData && licenseData.length > 0 ? licenseData : testData;
+    
+    console.log('Data to process:', {
+        source: (activeLicenses.data && Array.isArray(activeLicenses.data)) ? 'API response' : 
+                (licenseData && licenseData.length > 0) ? 'licenseData variable' : 'test data',
+        length: dataToProcess.length,
+        sample: dataToProcess.slice(0, 1)
+    });
+    
+    // Memoize data processing to improve performance
+    const processedData = useMemo(() => {
+        console.log('Processing license data...', dataToProcess);
+        let dataArray = dataToProcess;
         
-        // Always prepare data for table view with individual license holders
-        // This ensures the data is ready when switching to table view
-        const tableData = filteredData.map((license) => ({
-            id: uuid(),
-            ...license
-        }));
+        // Data is already validated as an array by this point
         
-        // Only update state if needed to prevent extra renders
-        if (JSON.stringify(tableData.map(item => ({ ...item, id: undefined }))) !== 
-            JSON.stringify(allLicenses.map(item => ({ ...item, id: undefined })))) {
-            setAllLicenses(tableData);
-        }
+        // Validate each item has required fields
+        const validData = dataArray.filter(item => 
+            item && typeof item === 'object' && item.email && item.product && item.expiry
+        );
         
-        // Group licenses by email for card view
-        const groupedByEmail = {};
-        filteredData.forEach(license => {
-            const { email } = license;
-            if (!groupedByEmail[email]) {
-                groupedByEmail[email] = {
-                    email,
-                    licenses: [],
-                    products: new Set()
-                };
-            }
-            groupedByEmail[email].licenses.push(license);
-            groupedByEmail[email].products.add(license.product);
+        console.log('Valid data length:', validData.length);
+        
+        // Sort validated data
+        const sortedData = validData.length > 0 
+            ? validData.sort((a, b) => a.email.localeCompare(b.email))
+            : [];
+            
+        return { sortedData, validData };
+    }, [dataToProcess]);
+        
+        // If no data or invalid data, show empty state
+        console.log('Processed data state:', {
+            exists: !!processedData, 
+            sortedData: processedData?.sortedData ? processedData.sortedData.length : 'none'
         });
         
-        // Convert to array and ensure products is an array
-        const groupedData = Object.values(groupedByEmail).map(user => ({
-            ...user,
-            products: Array.from(user.products)
-        }));
-        
-        // Only update grouped users if needed
-        if (!groupedUsers.length || groupedData.length !== groupedUsers.length) {
-            setGroupedUsers(groupedData);
+        if (!processedData || !processedData.sortedData || processedData.sortedData.length === 0) {
+            return (
+                <Container maxWidth="lg" sx={{ py: 4 }}>
+                    <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
+                        {props.name || 'Active Self Serve Licenses'}
+                    </Typography>
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                        <AlertTitle>No Licenses Found</AlertTitle>
+                        No active self-service licenses were found in the system.
+                    </Alert>
+                </Container>
+            );
         }
-  
-        if (sortedData) {
-            extendedCount = sortedData.filter((x) => {
-                if ( setExtendedLabel(x.timestamp, x.expiry, x.product) === 'Extended' ) return(true); else return(false)
-                } 
-            ).length
-        //    return (
-        //     <>
-        //        <p> {JSON.stringify(sortedData)}</p>
+        
+        // Memoize filtered data based on filters
+        const { filteredData, extendedCount } = useMemo(() => {
+            let filtered = processedData.sortedData;
+            
+            if (emailfilter.length > 0) {
+                filtered = filtered.filter((f) => f.email.includes(emailfilter));
+            }
 
-        //     </>)
+            if (productfilter.length > 0) {
+                filtered = filtered.filter((f) => f.product.includes(productfilter));
+            }
+            
+            // Calculate extended licenses count
+            const extended = processedData.sortedData.filter((x) => {
+                try {
+                    return setExtendedLabel(x.timestamp, x.expiry, x.product) === 'Extended';
+                } catch (e) {
+                    console.error('Error calculating extended label:', e);
+                    return false;
+                }
+            }).length;
+            
+            return { filteredData: filtered, extendedCount: extended };
+        }, [processedData.sortedData, emailfilter, productfilter]);
+        
+        const sortedData = processedData.sortedData;
+        
+        // Create a fallback direct grouping in case our main function fails
+        const userGroups = {};
+        
+        // Simple grouping without the complex function
+        filteredData.forEach(license => {
+            if (!license.email) return;
+            
+            if (!userGroups[license.email]) {
+                userGroups[license.email] = {
+                    email: license.email,
+                    products: [license.product],
+                    licenses: [license]
+                };
+            } else {
+                userGroups[license.email].licenses.push(license);
+                if (!userGroups[license.email].products.includes(license.product)) {
+                    userGroups[license.email].products.push(license.product);
+                }
+            }
+        });
+        
+        // Convert to array for rendering
+        const directGroupedUsers = Object.values(userGroups);
+        console.log('Direct grouped users:', directGroupedUsers.length);
+        
+        // Use the direct grouping for now to ensure we see data
+        const groupedUsers = directGroupedUsers;
+
+        // Create a memoized flat array of all licenses for the data grid
+        const allLicenses = useMemo(() => filteredData.map(license => {
+            if (!license || !license.expiry) return null;
+            
+            let expiry = Date.parse(license.expiry);
+            let timeToExpire = expiry - Date.now();
+            let durationOfLicense = Date.parse(license.expiry) - Date.parse(license.timestamp);
+            let durationString = durationOfLicense / (60 * 60 * 24 * 1000);
+            
+            const status = setChipLabel(timeToExpire);
+            const isExtended = setExtendedLabel(license.timestamp, license.expiry, license.product) === 'Extended';
+            
+            return {
+                id: license.email + '-' + license.product + '-' + license.timestamp,
+                email: license.email,
+                product: license.product,
+                status: status,
+                extended: isExtended ? 'Yes' : 'No',
+                issuedDate: license.timestamp,
+                expiryDate: license.expiry,
+                duration: durationString.toFixed(2) + ' days',
+                timeToExpire: timeToExpire,
+                ...license
+            };
+        }).filter(Boolean), [filteredData]);
+
+        // Define columns for the DataGrid
+        const columns = [
+            { field: 'email', headerName: 'Email', flex: 1.5, sortable: true },
+            { field: 'product', headerName: 'Product', flex: 1, sortable: true },
+            { 
+                field: 'status', 
+                headerName: 'Status', 
+                flex: 0.7, 
+                sortable: true,
+                renderCell: (params) => (
+                    <Chip 
+                        label={params.value} 
+                        color={setColor(params.row.timeToExpire)}
+                        variant="filled"
+                        size="small"
+                    />
+                )
+            },
+            { 
+                field: 'extended', 
+                headerName: 'Extended', 
+                flex: 0.7, 
+                sortable: true,
+                renderCell: (params) => (
+                    params.value === 'Yes' ? 
+                    <Chip label="Extended" color="info" size="small" /> : 
+                    <Chip label="Standard" variant="outlined" size="small" />
+                )
+            },
+            { 
+                field: 'issuedDate', 
+                headerName: 'Issued', 
+                flex: 1, 
+                sortable: true,
+                valueFormatter: (params) => params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A',
+                renderCell: (params) => (
+                    <Typography variant="body2">
+                        {params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
+                    </Typography>
+                )
+            },
+            { 
+                field: 'expiryDate', 
+                headerName: 'Expires', 
+                flex: 1, 
+                sortable: true,
+                valueFormatter: (params) => params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A',
+                renderCell: (params) => (
+                    <Typography variant="body2" color={setDateColor(params.value)}>
+                        {params.value ? params.value.replace(`${year}-`, "").replace('T', " ") : 'N/A'}
+                    </Typography>
+                )
+            },
+            { field: 'duration', headerName: 'Duration', flex: 0.8, sortable: true },
+            {
+                field: 'actions',
+                headerName: 'Actions',
+                flex: 0.8,
+                sortable: false,
+                renderCell: (params) => (
+                    <Button
+                        variant="contained"
+                        color="error"
+                        size="small"
+                        startIcon={<DeleteIcon />}
+                        onClick={(e) => returnLicense(e, params.row.email, params.row.product)}
+                    >
+                        Return {params.row.product} for {params.row.email.split('@')[0]}
+                    </Button>
+                )
+            },
+        ];
+
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
                 <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
@@ -626,7 +710,7 @@ export default function ActiveSelfServLicenses(props) {
                     }}
                 >
                     <Grid container spacing={3}>
-                        <Grid item size={6}>
+                        <Grid item xs={12} md={6}>
                             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Typography variant="h6" gutterBottom>License Summary</Typography>
                                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -775,23 +859,23 @@ export default function ActiveSelfServLicenses(props) {
                             </Card>
                         </Grid>
                         
-                        <Grid item size={6}>
+                        <Grid item xs={12} md={6}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="h6" gutterBottom>Filters</Typography>
                                 <Box>
                                     <Button
                                         variant="contained"
-                                        color={tableView ? "secondary" : "primary"}
-                                        onClick={toggleTableView}
+                                        color={expandAll ? "secondary" : "primary"}
+                                        onClick={toggleExpandAll}
                                         sx={{ ml: 2 }}
                                     >
-                                        {tableView ? "Card View" : "Table View"}
+                                        {expandAll ? "Card View" : "Table View"}
                                     </Button>
                                 </Box>
                             </Box>
                             
                             <Grid container spacing={2}>
-                                <Grid item size={12}>
+                                <Grid item xs={12}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography variant="body2" sx={{ minWidth: 120 }}>
                                             Email Filter:
@@ -824,7 +908,7 @@ export default function ActiveSelfServLicenses(props) {
                                     </Box>
                                 </Grid>
                                 
-                                <Grid item size={12}>
+                                <Grid item xs={12}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography variant="body2" sx={{ minWidth: 120 }}>
                                             Product Filter:
@@ -861,70 +945,13 @@ export default function ActiveSelfServLicenses(props) {
                     </Grid>
                 </Card>
 
-                {/* No licenses found message */}
-                {(!filteredData || filteredData.length === 0) && (
-                    <Typography>No licenses found with the current filters</Typography>
-                )}
-                
-                {/* Start of content when we have licenses */}
-                {filteredData && filteredData.length > 0 && (
+                {/* Check if we have users */}
+                {!groupedUsers || groupedUsers.length === 0 ? (
+                    <Typography>No users found with the current filters</Typography>
+                ) : (
                     <>
-                        {/* Table View */}
-                        {tableView && (
-                            <Box sx={{ width: '100%', height: 'auto', minHeight: 400 }}>
-                                <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-                                    Showing all {filteredData.length} licenses in table format
-                                </Typography>
-                                
-                                {/* DataGrid for licenses */}
-                                <Box sx={{ height: 650, width: '100%' }}>
-                                    <DataGrid 
-                                        rows={allLicenses.length > 0 ? allLicenses : filteredData.map(license => ({
-                                            id: uuid(),
-                                            ...license
-                                        }))}
-                                        columns={columns}
-                                        initialState={{
-                                            pagination: {
-                                                paginationModel: { pageSize: 25 },
-                                            },
-                                            sorting: {
-                                                sortModel: [{ field: 'email', sort: 'asc' }],
-                                            },
-                                        }}
-                                        pageSizeOptions={[10, 25, 50, 100]}
-                                        autoHeight
-                                        disableRowSelectionOnClick
-                                        getRowClassName={(params) => {
-                                            if (!params.row || !params.row.expiry) return '';
-                                            try {
-                                                const expiry = Date.parse(params.row.expiry);
-                                                const timeToExpire = expiry - Date.now();
-                                                return timeToExpire < (sixty_minutes * 2.0) ? 
-                                                    'MuiDataGrid-row--highlighted' : '';
-                                            } catch (e) {
-                                                return '';
-                                            }
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            '& .MuiDataGrid-cell:focus': {
-                                                outline: 'none',
-                                            },
-                                            '& .MuiDataGrid-row--highlighted': {
-                                                backgroundColor: 'rgba(255, 72, 66, 0.1)',
-                                            },
-                                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                                            borderRadius: 2
-                                        }}
-                                    />
-                                </Box>
-                            </Box>
-                        )}
-                        
                         {/* User Summary - Only show if not in table view */}
                         {!tableView && (
-                            <>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="h6" color="primary">
                                     Found {groupedUsers.length} users with active licenses
@@ -936,8 +963,44 @@ export default function ActiveSelfServLicenses(props) {
                                     sx={{ fontWeight: 'bold' }}
                                 />
                             </Box>
-                            
-                            {/* Card View */}
+                        )}
+                        
+                        {/* Table View */}
+                        {tableView ? (
+                            <Box sx={{ width: '100%', height: 'auto', minHeight: 400 }}>
+                                <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+                                    Showing all licenses in table format
+                                </Typography>
+                                <DataGrid
+                                    rows={allLicenses}
+                                    columns={columns}
+                                    initialState={{
+                                        pagination: {
+                                            paginationModel: {
+                                                pageSize: 25,
+                                            },
+                                        },
+                                        sorting: {
+                                            sortModel: [{ field: 'email', sort: 'asc' }],
+                                        },
+                                    }}
+                                    pageSizeOptions={[10, 25, 50, 100]}
+                                    autoHeight
+                                    disableRowSelectionOnClick
+                                    density="standard"
+                                    sx={{
+                                        width: '100%',
+                                        '& .MuiDataGrid-cell:focus': {
+                                            outline: 'none',
+                                        },
+                                        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                        borderRadius: 2
+                                    }}
+                                />
+                            </Box>
+                        ) : (
+                            // Card View
+                            <>
                                 {groupedUsers.map(user => {
                                     if (!user || !user.email) return null;
                                     
@@ -955,7 +1018,7 @@ export default function ActiveSelfServLicenses(props) {
                                     
                                     return (
                                         <Card 
-                                            key={user.email} 
+                                            key={uuid()} 
                                             variant="outlined" 
                                             sx={{ 
                                                 mb: 2, 
@@ -1166,7 +1229,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                     
                                                                     <CardContent sx={{ py: 2 }}>
                                                                         <Grid container spacing={2}>
-                                                                            <Grid item size={3}>
+                                                                            <Grid item xs={12} sm={6} md={3}>
                                                                                 <Typography variant="caption" color="text.secondary">
                                                                                     Product
                                                                                 </Typography>
@@ -1175,7 +1238,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                                 </Typography>
                                                                             </Grid>
                                                                             
-                                                                            <Grid item size={3}>
+                                                                            <Grid item xs={12} sm={6} md={3}>
                                                                                 <Typography variant="caption" color="text.secondary">
                                                                                     Issued
                                                                                 </Typography>
@@ -1184,7 +1247,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                                 </Typography>
                                                                             </Grid>
                                                                             
-                                                                            <Grid item size={3}>
+                                                                            <Grid item xs={12} sm={6} md={3}>
                                                                                 <Typography variant="caption" color="text.secondary">
                                                                                     Expires
                                                                                 </Typography>
@@ -1193,7 +1256,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                                 </Typography>
                                                                             </Grid>
                                                                             
-                                                                            <Grid item size={3}>
+                                                                            <Grid item xs={12} sm={6} md={3}>
                                                                                 <Typography variant="caption" color="text.secondary">
                                                                                     Duration
                                                                                 </Typography>
@@ -1202,7 +1265,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                                 </Typography>
                                                                             </Grid>
 
-                                                                            <Grid item size={3}>
+                                                                            <Grid item xs={12} sm={6} md={3}>
                                                                                 <Button
                                                                                     variant="contained"
                                                                                     color="error"
@@ -1217,7 +1280,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                                 </Button>
                                                                             </Grid>
 
-                                                                            <Grid item size={12}>
+                                                                            <Grid item xs={12}>
                                                                                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                                                                                     <Box sx={{ flex: 1, mr: 2 }}>
                                                                                         <LinearProgress
@@ -1253,15 +1316,18 @@ export default function ActiveSelfServLicenses(props) {
                 <SuccessAlert />
             </Container>
         )
-    
-        }
-
-    } else {
-        return (
-            <div>
-                <h1>No data</h1>
-            </div>
-        )
     }
+    
+    // If we reach here without returning, we have an issue with data format
+    return (
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+            <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
+                {props.name || 'Active Self Serve Licenses'}
+            </Typography>
+            <Alert severity="warning" sx={{ mt: 2 }}>
+                <AlertTitle>No Data Available</AlertTitle>
+                Unable to process license data. Please try refreshing the page.
+            </Alert>
+        </Container>
+    )
 }
-

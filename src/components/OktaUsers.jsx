@@ -3,11 +3,19 @@ import {
   Typography, Container, Paper, Box, CircularProgress, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Avatar, Chip, Tooltip, TextField, InputAdornment, Switch, FormControlLabel,
-  Select, MenuItem, InputLabel, FormControl
+  Select, MenuItem, InputLabel, FormControl, Grid, Card, CardContent, Divider,
+  Stack, LinearProgress
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import PeopleIcon from '@mui/icons-material/People';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import WorkIcon from '@mui/icons-material/Work';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PauseCircleFilledIcon from '@mui/icons-material/PauseCircleFilled';
 import { useOktaAuth } from '@okta/okta-react';
-import { useApiGet } from '../hooks/useApi';
+import { useApiGet, useProtectedApiGet } from '../hooks/useApi';
 
 export default function OktaUsers(props) {
   const { authState } = useOktaAuth();
@@ -19,7 +27,7 @@ export default function OktaUsers(props) {
   console.log("OktaUsers render - Auth state:", authState?.isAuthenticated);
 
   // Fetch Okta users with React Query
-  const oktaUsersQuery = useApiGet('/buckokta/category/att/comparison/match', {
+  const oktaUsersQuery = useProtectedApiGet('/buckokta/category/att/comparison/match', {
     queryParams: { _category: 'users' },
     queryConfig: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -30,7 +38,7 @@ export default function OktaUsers(props) {
   });
 
   // Fetch Google staff users with React Query
-  const googleStaffUsersQuery = useApiGet('/buckgoogleusers', {
+  const googleStaffUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
     queryParams: { status: 'active', emp_type: 'Staff' },
     queryConfig: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -41,7 +49,7 @@ export default function OktaUsers(props) {
   });
 
   // Fetch Google freelance users with React Query
-  const googleFreelanceUsersQuery = useApiGet('/buckgoogleusers', {
+  const googleFreelanceUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
     queryParams: { status: 'active', emp_type: 'Freelance' },
     queryConfig: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -212,59 +220,263 @@ export default function OktaUsers(props) {
         </Alert>
       )}
       
-      <Paper sx={{ p: 3, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>Summary</Typography>
-        <Typography>
-          {oktaUsers.length > 0 
-            ? `Successfully loaded ${oktaUsers.length} Okta users and ${googleUsers.length} Google users.` 
-            : "No users found."}
+      <Paper sx={{ p: 3, mb: 2, overflow: 'hidden' }}>
+        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+          <PeopleIcon sx={{ mr: 1 }} />
+          User Summary Dashboard
         </Typography>
         
-        {oktaUsers.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-            {/* Status chips */}
-            {['ACTIVE', 'STAGED', 'PROVISIONED', 'DEPROVISIONED', 'SUSPENDED', 'RECOVERY', 'PASSWORD_EXPIRED'].map(status => {
-              const count = oktaUsers.filter(user => user.status === status).length;
-              if (count > 0) {
-                return (
-                  <Chip 
-                    key={status}
-                    label={`${count} ${status.charAt(0) + status.slice(1).toLowerCase()}`}
-                    color={status === 'ACTIVE' ? 'success' : 'default'}
-                    variant={statusFilter === status ? 'filled' : 'outlined'}
-                    size="small"
-                    onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
-                    sx={{ cursor: 'pointer' }}
-                  />
-                );
-              }
-              return null;
-            })}
+        {oktaUsers.length === 0 ? (
+          <Typography>No users found.</Typography>
+        ) : (
+          <>
+            {/* Top summary cards */}
+            <Grid container spacing={1.5} sx={{ mb: 2, mt: 0.5 }}>
+              {/* Total Users card */}
+              <Grid item xs={12} md={3}>
+                <Card variant="outlined" sx={{ 
+                  bgcolor: 'primary.light', 
+                  color: 'white',
+                  height: '100%',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                }}>
+                  <CardContent sx={{ p: 1.5, pb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" fontWeight="bold">
+                        Total Users
+                      </Typography>
+                      <PeopleIcon fontSize="small" />
+                    </Box>
+                    <Typography variant="h5" sx={{ my: 0.5, fontWeight: 'bold' }}>
+                      {oktaUsers.length}
+                    </Typography>
+                    <Typography variant="caption">
+                      {googleUsers.length} connected to Google
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              {/* Active Users card */}
+              <Grid item xs={12} md={3}>
+                <Card variant="outlined" sx={{ 
+                  bgcolor: 'success.light', 
+                  color: 'white',
+                  height: '100%',
+                  transition: 'all 0.3s',
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                }}>
+                  <CardContent sx={{ p: 1.5, pb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" fontWeight="bold">
+                        Active Users
+                      </Typography>
+                      <CheckCircleIcon fontSize="small" />
+                    </Box>
+                    <Typography variant="h5" sx={{ my: 0.5, fontWeight: 'bold' }}>
+                      {oktaUsers.filter(user => user.status === 'ACTIVE').length}
+                    </Typography>
+                    <Typography variant="caption">
+                      {Math.round(oktaUsers.filter(user => user.status === 'ACTIVE').length / oktaUsers.length * 100)}% of total users
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              {/* Users with Photos card */}
+              <Grid item xs={12} md={3}>
+                <Card 
+                  variant="outlined"
+                  onClick={() => setShowOnlyWithPhotos(!showOnlyWithPhotos)} 
+                  sx={{ 
+                    bgcolor: 'secondary.light', 
+                    color: 'white',
+                    height: '100%',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 },
+                    border: showOnlyWithPhotos ? '2px solid white' : 'none'
+                  }}
+                >
+                  <CardContent sx={{ p: 1.5, pb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" fontWeight="bold">
+                        Users with Photos
+                      </Typography>
+                      <PhotoCameraIcon fontSize="small" />
+                    </Box>
+                    <Typography variant="h5" sx={{ my: 0.5, fontWeight: 'bold' }}>
+                      {googleUsers.filter(u => u.thumbnailPhotoUrl).length}
+                    </Typography>
+                    <Typography variant="caption">
+                      {Math.round(googleUsers.filter(u => u.thumbnailPhotoUrl).length / googleUsers.length * 100)}% of Google users
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              {/* Freelancers card */}
+              <Grid item xs={12} md={3}>
+                <Card 
+                  variant="outlined" 
+                  onClick={() => setShowOnlyFreelancers(!showOnlyFreelancers)}
+                  sx={{ 
+                    bgcolor: 'error.light', 
+                    color: 'white',
+                    height: '100%',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 },
+                    border: showOnlyFreelancers ? '2px solid white' : 'none'
+                  }}
+                >
+                  <CardContent sx={{ p: 1.5, pb: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" fontWeight="bold">
+                        Freelancers
+                      </Typography>
+                      <WorkIcon fontSize="small" />
+                    </Box>
+                    <Typography variant="h5" sx={{ my: 0.5, fontWeight: 'bold' }}>
+                      {googleUsers.filter(u => 
+                        u.organizations && 
+                        u.organizations[0]?.costCenter && 
+                        u.organizations[0].costCenter.toLowerCase() === 'freelance'
+                      ).length}
+                    </Typography>
+                    <Typography variant="caption">
+                      Click to {showOnlyFreelancers ? 'hide' : 'show'} only freelancers
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
             
-            {/* Photo chip */}
-            <Chip 
-              label={`${googleUsers.filter(u => u.thumbnailPhotoUrl).length} Users with Photos`}
-              color="secondary" 
-              size="small"
-              variant={showOnlyWithPhotos ? 'filled' : 'outlined'}
-              onClick={() => setShowOnlyWithPhotos(!showOnlyWithPhotos)}
-              sx={{ cursor: 'pointer' }}
-            />
+            {/* Status distribution graph */}
+            <Box sx={{ mt: 2, mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                <VerifiedUserIcon sx={{ mr: 0.75, fontSize: '1rem' }} />
+                User Status Distribution
+              </Typography>
+              
+              <Grid container spacing={1}>
+                {['ACTIVE', 'STAGED', 'PROVISIONED', 'DEPROVISIONED', 'SUSPENDED', 'RECOVERY', 'PASSWORD_EXPIRED'].map(status => {
+                  const count = oktaUsers.filter(user => user.status === status).length;
+                  if (count > 0) {
+                    const percentage = Math.round((count / oktaUsers.length) * 100);
+                    let statusColor;
+                    
+                    switch(status) {
+                      case 'ACTIVE': statusColor = 'success.main'; break;
+                      case 'DEPROVISIONED': statusColor = 'error.main'; break;
+                      case 'SUSPENDED': statusColor = 'warning.dark'; break;
+                      case 'PASSWORD_EXPIRED': statusColor = 'warning.main'; break;
+                      default: statusColor = 'info.main';
+                    }
+                    
+                    return (
+                      <Grid item xs={12} key={status}>
+                        <Box 
+                          sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            mb: 0.25,
+                            cursor: 'pointer',
+                            p: 0.25,
+                            borderRadius: 1,
+                            bgcolor: statusFilter === status ? 'rgba(0,0,0,0.05)' : 'transparent',
+                            '&:hover': { bgcolor: 'rgba(0,0,0,0.08)' }
+                          }}
+                          onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
+                        >
+                          <Box sx={{ minWidth: 150, display: 'flex', alignItems: 'center' }}>
+                            {status === 'ACTIVE' ? (
+                              <CheckCircleIcon fontSize="small" color="success" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
+                            ) : (
+                              <PauseCircleFilledIcon fontSize="small" color="action" sx={{ mr: 0.5, fontSize: '0.9rem' }} />
+                            )}
+                            <Typography variant="caption" sx={{ fontWeight: statusFilter === status ? 'bold' : 'regular' }}>
+                              {status.charAt(0) + status.slice(1).toLowerCase()}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ flex: 1, mx: 1.5 }}>
+                            <LinearProgress 
+                              variant="determinate" 
+                              value={percentage} 
+                              sx={{ 
+                                height: 6, 
+                                borderRadius: 3,
+                                backgroundColor: 'rgba(0,0,0,0.08)', 
+                                '& .MuiLinearProgress-bar': {
+                                  backgroundColor: statusColor
+                                }
+                              }} 
+                            />
+                          </Box>
+                          <Box sx={{ minWidth: 45, textAlign: 'right' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {count} ({percentage}%)
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    );
+                  }
+                  return null;
+                })}
+              </Grid>
+            </Box>
             
-            {/* Freelancer chip */}
-            <Chip 
-              label={`${googleUsers.filter(u => 
-                u.organizations && 
-                u.organizations[0]?.costCenter && 
-                u.organizations[0].costCenter.toLowerCase() === 'freelance'
-              ).length} Freelancers`}
-              color="error" 
-              size="small"
-              variant={showOnlyFreelancers ? 'filled' : 'outlined'}
-              onClick={() => setShowOnlyFreelancers(!showOnlyFreelancers)}
-              sx={{ cursor: 'pointer' }}
-            />
-          </Box>
+            {/* Action chips */}
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              {/* Status filter chips */}
+              {['ACTIVE', 'STAGED', 'PROVISIONED', 'DEPROVISIONED', 'SUSPENDED', 'RECOVERY', 'PASSWORD_EXPIRED'].map(status => {
+                const count = oktaUsers.filter(user => user.status === status).length;
+                if (count > 0) {
+                  return (
+                    <Chip 
+                      key={status}
+                      label={`${count} ${status.charAt(0) + status.slice(1).toLowerCase()}`}
+                      color={status === 'ACTIVE' ? 'success' : 'default'}
+                      variant={statusFilter === status ? 'filled' : 'outlined'}
+                      size="small"
+                      onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  );
+                }
+                return null;
+              })}
+              
+              {/* Photo chip */}
+              <Chip 
+                icon={<PhotoCameraIcon />}
+                label={`${googleUsers.filter(u => u.thumbnailPhotoUrl).length} Users with Photos`}
+                color="secondary" 
+                size="small"
+                variant={showOnlyWithPhotos ? 'filled' : 'outlined'}
+                onClick={() => setShowOnlyWithPhotos(!showOnlyWithPhotos)}
+                sx={{ cursor: 'pointer' }}
+              />
+              
+              {/* Freelancer chip */}
+              <Chip 
+                icon={<WorkIcon />}
+                label={`${googleUsers.filter(u => 
+                  u.organizations && 
+                  u.organizations[0]?.costCenter && 
+                  u.organizations[0].costCenter.toLowerCase() === 'freelance'
+                ).length} Freelancers`}
+                color="error" 
+                size="small"
+                variant={showOnlyFreelancers ? 'filled' : 'outlined'}
+                onClick={() => setShowOnlyFreelancers(!showOnlyFreelancers)}
+                sx={{ cursor: 'pointer' }}
+              />
+            </Box>
+          </>
         )}
       </Paper>
       
@@ -403,19 +615,30 @@ export default function OktaUsers(props) {
                               ? 'Freelancer - Google profile photo' 
                               : 'Google profile photo'
                           }>
-                            <Avatar 
+                            <Avatar
                               src={googleUser.thumbnailPhotoUrl}
-                              sx={{ 
-                                width: 32, 
+                              alt={getUserInitials(user)}
+                              imgProps={{
+                                loading: "lazy",
+                                referrerPolicy: "no-referrer",
+                                onError: (e) => {
+                                  console.log("Image failed to load for:", user.profile?.email);
+                                  e.target.style.display = 'none';
+                                }
+                              }}
+                              sx={{
+                                width: 32,
                                 height: 32,
-                                border: (googleUser.organizations && 
-                                        googleUser.organizations[0]?.costCenter && 
+                                border: (googleUser.organizations &&
+                                        googleUser.organizations[0]?.costCenter &&
                                         googleUser.organizations[0].costCenter.toLowerCase() === 'freelance')
-                                  ? '2px solid #f50057' 
+                                  ? '2px solid #f50057'
                                   : '2px solid #8c9eff',
                                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                               }}
-                            />
+                            >
+                              {getUserInitials(user)}
+                            </Avatar>
                           </Tooltip>
                         ) : (
                           <Avatar 

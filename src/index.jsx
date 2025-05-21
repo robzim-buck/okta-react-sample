@@ -34,7 +34,8 @@ const theme = createTheme({
       main: '#9c27b0',
     },
     background: {
-      default: '#f5f5f5',
+      default: 'transparent',
+      paper: 'transparent',
     },
   },
   typography: {

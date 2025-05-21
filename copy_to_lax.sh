@@ -1,1 +1,1 @@
-scp -rv dist root@laxcoresrv.buck.local:/root/robz/rz-ldap/dist
+scp -rv dist root@laxcoresrv.buck.local:/root/robz/rz-ldap/

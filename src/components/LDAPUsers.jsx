@@ -120,7 +120,14 @@ export default function LDAPUsers(props) {
                 queryKey: ["ldapUsers"],
                 queryFn: async () => {
                     try {
-                        const res = await fetch("https://laxcoresrv.buck.local:8000/buckldap/category/att/match/attributes?_category=person");
+                        const res = await fetch('https://laxcoresrv.buck.local:8000/buckldap/category/att/match/attributes?_category=person',{
+                                method: 'GET',
+                                mode: 'cors',
+                                  headers: {
+                                    'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+                              } 
+                            } 
+                        );
                         if (!res.ok) {
                             throw new Error(`HTTP error! Status: ${res.status}`);
                         }

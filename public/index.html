@@ -20,12 +20,73 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Buck Web UI</title>
-  </head>
+    <title>Wind-Scattered Water Droplets</title>
+    <!-- <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #EEFAFF;
+      }
+      .droplet {
+        position: absolute;
+        background: rgba(77, 171, 247, 0.5);
+        border-radius: 50%;
+        opacity: 0;
+        transform: scale(0.8);
+        animation: fallAndDrift linear forwards;
+      }
+      @keyframes fallAndDrift {
+        0% {
+          transform: translate(0, 0) scale(var(--scale));
+          opacity: 0;
+        }
+        15% {
+          transform: translate(0, -10px) scale(calc(var(--scale) * 1.4));
+          opacity: 0.9;
+        }
+        100% {
+          transform: translate(var(--drift-x), 100vh) scale(calc(var(--scale) * 1.1));
+          opacity: 0;
+        }
+      }
+    </style> -->
+    </head>
   <body>
     <noscript>
       You need to enable JavaScript to run this app.
     </noscript>
-    <div id="root"></div>
+    <!-- <script>
+      function createDroplet() {
+        const droplet = document.createElement("div");
+        droplet.classList.add("droplet");
+        // Random size (up to 14px)
+        const size = 6 + Math.random() * 8; // 6px to 14px
+        droplet.style.width = `${size}px`;
+        droplet.style.height = `${size}px`;
+        // Random starting X position
+        droplet.style.left = `${Math.random() * window.innerWidth}px`;
+        // Random scale for animation smoothness
+        const scale = (size / 14).toFixed(2);
+        droplet.style.setProperty('--scale', scale);
+        // Increased wind drift range
+        const driftX = (Math.random() - 0.5) * 300; // -150px to +150px
+        droplet.style.setProperty('--drift-x', `${driftX}px`);
+        // Random animation duration
+        const duration = 2.5 + Math.random() * 2.5; // 2.5–5s
+        droplet.style.animationDuration = `${duration}s`;
+        document.body.appendChild(droplet);
+        // Cleanup
+        setTimeout(() => {
+          droplet.remove();
+        }, duration * 1000);
+      }
+      // Increase droplet count
+      setInterval(() => {
+        for (let i = 0; i < 6; i++) {
+          createDroplet();
+        }
+      }, 200);
+    </script>    <div id="root"></div> -->
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

@@ -1,7 +1,15 @@
 - Config: Anthropic's AI configuration and setup parameters that define Claude's behavior and capabilities
 - React Query: use @tanstack/react-query to fetch data
-- @mui/material: use @mui/material for the user interface
+- @mui/material: always use @mui/material library for the user interface
 - Memoize data when possible
 - Never run npm start. Always assume the developer is running npm start in a terminal session.
 - In MUI grid components, never use the xs prop. Use the size prop instead.
 - Do not use the md prop in grid components. It has been deprecated and can be safely removed from project components.
+- When fetching data, always validate the API calls by checking the API endpoint described with openapi.json in https://laxcoresrv.buck.local:8000/openapi.json
+- If an API call is 'protected' use this header { 'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo' }
+- Always check imports
+- use @tanstack/react-query to fetch src/components/OktaUsers.jsx
+- For deployment, use npm run build and the ./copy_to_lax.sh script
+- Never create helper apps like those defined in srv/hooks/useApi.js.  Always fix or modify the Component or route requested by the user.
+- Use a Grid layout with copmonents from the @mui/material library where possible.
+- In Grid components, never use the sm, med, lg tags. They are deprecated. Always use the size tag instead.

@@ -95,7 +95,12 @@ const CompositeMachineInfo = () => {
     queryKey: ['jamfcomputers'],
     queryFn: async () => {
       try {
-        const res = await fetch("https://laxcoresrv.buck.local:8000/jamf/computers_from_mongo?count=999");
+        const res = await fetch("https://laxcoresrv.buck.local:8000/mongo/jamf_computers_from_mongo?count=999", {
+          headers: {
+            'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+          }
+        },
+        );
         if (!res.ok) {
           throw new Error(`HTTP error! Status: ${res.status}`);
         }
@@ -114,7 +119,11 @@ const CompositeMachineInfo = () => {
     queryKey: ['ldapmachineinfo'],
     queryFn: async () => {
       try {
-        const res = await fetch("https://laxcoresrv.buck.local:8000/buckldap_machineinfo");
+        const res = await fetch('https://laxcoresrv.buck.local:8000/buckldap_machineinfo', {
+          headers: {
+            'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+          }
+        });
         if (!res.ok) {
           throw new Error(`HTTP error! Status: ${res.status}`);
         }

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { 
+import React, { useState, useMemo } from 'react';
+import {
   Typography, Container, Paper, Box, CircularProgress, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Avatar, Chip, Tooltip, TextField, InputAdornment, Switch, FormControlLabel,
@@ -7,35 +7,99 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useOktaAuth } from '@okta/okta-react';
+import { useProtectedApiGet } from '../hooks/useApi';
 
 export default function GoogleUsers(props) {
   const { authState } = useOktaAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [googleUsers, setGoogleUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyWithPhotos, setShowOnlyWithPhotos] = useState(false);
   const [showOnlyFreelancers, setShowOnlyFreelancers] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState('');
-  
+
   console.log("GoogleUsers render - Auth state:", authState?.isAuthenticated);
 
-  useEffect(() => {
-    console.log("GoogleUsers component mounted");
-    // Simple timeout to check if component is rendering at all
-    const timer = setTimeout(() => {
-      setLoading(false);
-      console.log("Loading state turned off");
-    }, 2000);
+  // Fetch Google staff users with React Query using protected endpoint
+  const googleStaffUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
+    queryParams: { status: 'active', emp_type: 'Staff' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000,
+      onSuccess: (data) => {
+        console.log("Google staff users fetched successfully:", data.length);
+        if (data.length > 0) {
+          console.log("Sample Staff Google user:", data[0]);
+        }
+      }
+    },
+    dependencies: ['staff']
+  });
 
-    return () => clearTimeout(timer);
-  }, []);
-  
+  // Fetch Google freelance users with React Query using protected endpoint
+  const googleFreelanceUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
+    queryParams: { status: 'active', emp_type: 'Freelance' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000,
+      onSuccess: (data) => {
+        console.log("Google freelance users fetched successfully:", data.length);
+        if (data.length > 0) {
+          console.log("Sample Freelance Google user:", data[0]);
+        }
+      }
+    },
+    dependencies: ['freelance']
+  });
+
+  // Combine and process Google users data
+  const googleUsers = useMemo(() => {
+    if (googleStaffUsersQuery.isLoading || googleFreelanceUsersQuery.isLoading) {
+      return [];
+    }
+
+    if (googleStaffUsersQuery.error || googleFreelanceUsersQuery.error) {
+      console.error("Error fetching Google users:", googleStaffUsersQuery.error || googleFreelanceUsersQuery.error);
+      return [];
+    }
+
+    // Ensure data is in expected format
+    console.log("Staff query data:", googleStaffUsersQuery.data);
+    console.log("Freelance query data:", googleFreelanceUsersQuery.data);
+    
+    const staffData = Array.isArray(googleStaffUsersQuery.data) ? googleStaffUsersQuery.data : [];
+    const freelanceData = Array.isArray(googleFreelanceUsersQuery.data) ? googleFreelanceUsersQuery.data : [];
+
+    // Combine both sets of users
+    const data = [...staffData, ...freelanceData];
+    console.log("Combined Google users:", data.length);
+
+    // The Google API already provides thumbnailPhotoUrl in the correct format
+    // We'll just log one sample and pass through the data without modification
+    const processedData = data;
+
+    // Log sample data for debugging
+    if (data.length > 0) {
+      console.log("Sample Google user:", data[0]);
+      console.log("Sample Google user thumbnailPhotoUrl:", data[0].thumbnailPhotoUrl);
+    }
+
+    // Count users with thumbnails
+    const usersWithThumbnails = processedData.filter(user => user.thumbnailPhotoUrl).length;
+    console.log(`Google users with thumbnails: ${usersWithThumbnails}`);
+
+    return processedData;
+  }, [googleStaffUsersQuery.data, googleFreelanceUsersQuery.data,
+      googleStaffUsersQuery.isLoading, googleFreelanceUsersQuery.isLoading,
+      googleStaffUsersQuery.error, googleFreelanceUsersQuery.error]);
+
   // Get user initials for avatar fallback
   const getUserInitials = (user) => {
     const firstName = user.name?.givenName || '';
     const lastName = user.name?.familyName || '';
-    
+
     if (firstName && lastName) {
       return `${firstName[0]}${lastName[0]}`.toUpperCase();
     } else if (firstName) {
@@ -47,64 +111,6 @@ export default function GoogleUsers(props) {
     }
   };
 
-  // Manually fetch data
-  useEffect(() => {
-    const fetchGoogleUsers = async () => {
-      try {
-        console.log("Fetching Google staff users...");
-        const staffRes = await fetch("https://laxcoresrv.buck.local:8000/buckgoogleusers?status=active&emp_type=Staff");
-        if (!staffRes.ok) {
-          throw new Error(`HTTP error! Status: ${staffRes.status}`);
-        }
-        const staffData = await staffRes.json();
-        console.log("Google staff users fetched successfully:", staffData.length);
-        
-        console.log("Fetching Google freelance users...");
-        const freelanceRes = await fetch("https://laxcoresrv.buck.local:8000/buckgoogleusers?status=active&emp_type=Freelance");
-        if (!freelanceRes.ok) {
-          throw new Error(`HTTP error! Status: ${freelanceRes.status}`);
-        }
-        const freelanceData = await freelanceRes.json();
-        console.log("Google freelance users fetched successfully:", freelanceData.length);
-        
-        // Log sample user data to inspect structure
-        if (staffData.length > 0) {
-          console.log("Sample Staff Google user:", staffData[0]);
-        }
-        if (freelanceData.length > 0) {
-          console.log("Sample Freelance Google user:", freelanceData[0]);
-        }
-        
-        // Combine both sets of users
-        const data = [...staffData, ...freelanceData];
-        console.log("Combined Google users:", data.length);
-        
-        // Process Google user data to normalize thumbnail URLs
-        const processedData = data.map(user => {
-          // Check for thumbnail in various possible property names
-          const thumbnailUrl = user?.thumbnailPhotoUrl || user?.thumbnail || user?.photo || user?.photoUrl;
-          
-          if (thumbnailUrl && !user.thumbnailPhotoUrl) {
-            // Add standardized property name if found in an alternative property
-            return { ...user, thumbnailPhotoUrl: thumbnailUrl };
-          }
-          
-          return user;
-        });
-        
-        // Count users with thumbnails
-        const usersWithThumbnails = processedData.filter(user => user.thumbnailPhotoUrl).length;
-        console.log(`Google users with thumbnails: ${usersWithThumbnails}`);
-        
-        setGoogleUsers(processedData);
-      } catch (error) {
-        console.error("Error fetching Google users:", error);
-        setError("Failed to fetch Google users");
-      }
-    };
-
-    fetchGoogleUsers();
-  }, []);
 
   // Extract unique departments from users for the filter dropdown
   const departments = [...new Set(
@@ -113,7 +119,14 @@ export default function GoogleUsers(props) {
       .map(user => user.organizations[0].department)
   )].sort();
 
-  if (loading) {
+  // Determine loading state
+  const isLoading = googleStaffUsersQuery.isLoading || googleFreelanceUsersQuery.isLoading;
+
+  // Determine error state
+  const error = (googleStaffUsersQuery.error && googleFreelanceUsersQuery.error) ?
+                "Failed to fetch Google users" : null;
+
+  if (isLoading) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
@@ -345,27 +358,39 @@ export default function GoogleUsers(props) {
                         {user.thumbnailPhotoUrl ? (
                           <Tooltip title={
                             isFreelancer
-                              ? 'Freelancer - Google profile photo' 
+                              ? 'Freelancer - Google profile photo'
                               : 'Google profile photo'
                           }>
-                            <Avatar 
+                            <Avatar
                               src={user.thumbnailPhotoUrl}
-                              sx={{ 
-                                width: 32, 
+                              alt={getUserInitials(user)}
+                              imgProps={{
+                                loading: "lazy",
+                                referrerPolicy: "no-referrer",
+                                onError: (e) => {
+                                  console.log("Image failed to load for:", user.primaryEmail);
+                                  // Just show the initials when image fails
+                                  e.target.style.display = 'none';
+                                }
+                              }}
+                              sx={{
+                                width: 32,
                                 height: 32,
                                 border: isFreelancer
-                                  ? '2px solid #f50057' 
+                                  ? '2px solid #f50057'
                                   : '2px solid #8c9eff',
                                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                               }}
-                            />
+                            >
+                              {getUserInitials(user)}
+                            </Avatar>
                           </Tooltip>
                         ) : (
-                          <Avatar 
-                            sx={{ 
+                          <Avatar
+                            sx={{
                               bgcolor: isFreelancer ? '#f50057' : 'primary.main',
-                              width: 32, 
-                              height: 32 
+                              width: 32,
+                              height: 32
                             }}
                           >
                             {getUserInitials(user)}

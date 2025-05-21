@@ -1,14 +1,17 @@
 import uuid from 'react-uuid';
 import { useState } from 'react';
-import { useQueries } from "@tanstack/react-query";
-import { Typography, Button, IconButton } from '@mui/material';
-import { Chip, Grid, Box, Card, CardContent, Collapse, Paper } from '@mui/material';
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { Typography, Button, IconButton, Divider, List, ListItem, ListItemText, ListItemAvatar, Avatar, Tooltip } from '@mui/material';
+import { Chip, Grid, Box, Card, CardContent, Collapse, Paper, Alert } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
+import GroupIcon from '@mui/icons-material/Group';
+import PersonIcon from '@mui/icons-material/Person';
 
 export default function AdobeGroups(props) {
     const [groupFilter, setGroupFilter] = useState('');   
     const [typeFilter, setTypeFilter] = useState('');
     const [expandedGroups, setExpandedGroups] = useState({});
+    const [selectedGroup, setSelectedGroup] = useState(null);
 
     const [adobeGroups] = useQueries({
         queries: [
@@ -28,11 +31,24 @@ export default function AdobeGroups(props) {
         setTypeFilter('');
     }
     
-    const toggleGroupExpand = (groupId) => {
+    const toggleGroupExpand = (groupId, groupName) => {
+        const isCurrentlyExpanded = expandedGroups[groupId] || false;
+        
+        // Update expanded state
         setExpandedGroups(prev => ({
             ...prev,
-            [groupId]: !prev[groupId]
+            [groupId]: !isCurrentlyExpanded
         }));
+        
+        // If expanding, set the selected group to fetch members
+        if (!isCurrentlyExpanded) {
+            setSelectedGroup({
+                id: groupId,
+                name: groupName
+            });
+        } else {
+            setSelectedGroup(null);
+        }
     }
 
     if (adobeGroups.isLoading) return <CircularProgress></CircularProgress>;
@@ -270,7 +286,7 @@ export default function AdobeGroups(props) {
                                                     size="small"
                                                     variant="contained"
                                                     color={isExpanded ? "secondary" : "primary"}
-                                                    onClick={() => toggleGroupExpand(group.groupId)}
+                                                    onClick={() => toggleGroupExpand(group.groupId, group.groupName)}
                                                     sx={{ 
                                                         minWidth: 100,
                                                         borderRadius: 8
@@ -344,6 +360,17 @@ export default function AdobeGroups(props) {
                                                         </Grid>
                                                     </CardContent>
                                                 </Card>
+                                                
+                                                {/* Group Members Section */}
+                                                {selectedGroup && selectedGroup.id === group.groupId && (
+                                                    <Box sx={{ mt: 3 }}>
+                                                        <Divider sx={{ mb: 2 }} />
+                                                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'text.primary', display: 'flex', alignItems: 'center' }}>
+                                                            <GroupIcon sx={{ mr: 1 }} /> Group Members
+                                                        </Typography>
+                                                        <GroupMembers groupName={group.groupName} />
+                                                    </Box>
+                                                )}
                                             </Box>
                                         </Collapse>
                                     </CardContent>
@@ -363,5 +390,247 @@ export default function AdobeGroups(props) {
             <CircularProgress color="inherit"></CircularProgress>
         </Box>
         </>
+    );
+}
+
+// Group Members Component
+function GroupMembers({ groupName }) {
+    // URL encode the group name for the API request
+    const encodedGroupName = encodeURIComponent(groupName);
+    
+    // Log the API URL for debugging
+    console.log(`Fetching users for group: ${groupName}`);
+    console.log(`API URL: https://laxcoresrv.buck.local:8000/adobe_users_in_group?group=${encodedGroupName}`);
+    
+    // Fetch group members
+    const { data, isLoading, error } = useQuery({
+        queryKey: ["adobeGroupMembers", encodedGroupName],
+        queryFn: () => fetch(
+            `https://laxcoresrv.buck.local:8000/adobe_users_in_group?group=${encodedGroupName}`,
+            {
+                method: 'GET',
+                headers: {
+                    'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+                }
+            }
+        )
+        .then(res => {
+            if (!res.ok) {
+                console.error(`Error fetching group members: ${res.status} ${res.statusText}`);
+                throw new Error(`API responded with status: ${res.status}`);
+            }
+            return res.json();
+        })
+        .then(data => {
+            console.log(`Received data for ${groupName}:`, data);
+            
+            // Check for throttling response
+            if (Array.isArray(data) && data.length === 1 && 
+                typeof data[0] === 'string' && data[0].includes('throttled')) {
+                throw new Error(`API throttled: ${data[0]}`);
+            }
+            
+            // Handle the nested users format
+            if (data && typeof data === 'object' && data.result === 'success' && Array.isArray(data.users)) {
+                console.log(`Found ${data.users.length} users in nested format`);
+                return data.users;
+            }
+            
+            return data;
+        })
+        .catch(err => {
+            console.error(`Error in group members fetch for ${groupName}:`, err);
+            throw err;
+        })
+    });
+    
+    if (isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                <CircularProgress size={30} />
+            </Box>
+        );
+    }
+    
+    if (error) {
+        return (
+            <Alert severity="error" sx={{ mt: 2 }}>
+                Error loading group members: {error.message}
+            </Alert>
+        );
+    }
+    
+    if (!data) {
+        return (
+            <Alert severity="info" sx={{ mt: 2 }}>
+                No data received for this group. Please check the console for more information.
+            </Alert>
+        );
+    }
+    
+    if (!Array.isArray(data)) {
+        return (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+                Unexpected data format received: {typeof data === 'object' ? JSON.stringify(data) : String(data)}.
+            </Alert>
+        );
+    }
+    
+    if (data.length === 0) {
+        return (
+            <Alert severity="info" sx={{ mt: 2 }}>
+                No members found in the group "{groupName}".
+            </Alert>
+        );
+    }
+    
+    return (
+        <Card variant="outlined" sx={{ mt: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+            <Box sx={{ 
+                p: 2, 
+                backgroundColor: 'primary.main', 
+                color: 'white',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                    <GroupIcon sx={{ mr: 1 }} /> 
+                    Members of "{groupName}"
+                </Typography>
+                <Chip 
+                    label={`${data.length} ${data.length === 1 ? 'Member' : 'Members'}`}
+                    color="secondary"
+                    size="small"
+                    sx={{ fontWeight: 'bold', color: 'white' }}
+                />
+            </Box>
+            
+            <Divider />
+            
+            <Box sx={{ maxHeight: '400px', overflow: 'auto' }}>
+                <List sx={{ width: '100%', bgcolor: 'background.paper', p: 0 }}>
+                    {data.map((user, index) => {
+                        // Get initials for avatar
+                        let initials = '';
+                        if (user.firstname && user.lastname) {
+                            // If we have first and last name, use those for initials
+                            initials = (user.firstname.charAt(0) + user.lastname.charAt(0)).toUpperCase();
+                        } else {
+                            // Fall back to name or other fields
+                            const name = user.name || user.userName || user.username || user.email || '';
+                            initials = name.split(' ')
+                                .map(part => part.charAt(0))
+                                .join('')
+                                .toUpperCase()
+                                .substring(0, 2);
+                        }
+                            
+                        return (
+                            <ListItem 
+                                key={uuid()} 
+                                divider={index < data.length - 1}
+                                sx={{ 
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                                    }
+                                }}
+                            >
+                                <ListItemAvatar>
+                                    <Avatar 
+                                        sx={{ 
+                                            bgcolor: initials ? 'primary.light' : 'primary.main',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        {initials || <PersonIcon />}
+                                    </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText
+                                    primary={
+                                        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                            {/* Format name from firstname/lastname if available */}
+                                            {user.firstname && user.lastname 
+                                                ? `${user.firstname} ${user.lastname}`
+                                                : user.name || user.userName || user.username || user.email || 'Unknown User'}
+                                        </Typography>
+                                    }
+                                    secondary={
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                                                {user.email || 'No email available'}
+                                            </Typography>
+                                            {user.username && user.username !== user.email && (
+                                                <Typography variant="caption" color="text.secondary">
+                                                    Username: {user.username}
+                                                </Typography>
+                                            )}
+                                            {user.status && (
+                                                <Typography 
+                                                    variant="caption" 
+                                                    sx={{ 
+                                                        ml: 1,
+                                                        color: user.status === 'active' ? 'success.main' : 'warning.main',
+                                                        fontWeight: 'medium'
+                                                    }}
+                                                >
+                                                    ({user.status})
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    }
+                                />
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                    {user.type && (
+                                        <Chip 
+                                            label={user.type} 
+                                            size="small" 
+                                            color="secondary" 
+                                            variant="outlined" 
+                                        />
+                                    )}
+                                    {user.country && (
+                                        <Chip 
+                                            label={user.country} 
+                                            size="small" 
+                                            color="info" 
+                                            variant="outlined" 
+                                        />
+                                    )}
+                                    {user.domain && (
+                                        <Chip 
+                                            label={user.domain} 
+                                            size="small" 
+                                            color="default" 
+                                            variant="outlined" 
+                                        />
+                                    )}
+                                    {user.id && (
+                                        <Tooltip title={user.id}>
+                                            <Chip 
+                                                label="ID" 
+                                                size="small" 
+                                                color="default" 
+                                                variant="outlined" 
+                                                sx={{ opacity: 0.6 }}
+                                            />
+                                        </Tooltip>
+                                    )}
+                                </Box>
+                            </ListItem>
+                        );
+                    })}
+                </List>
+            </Box>
+            
+            {data.length > 10 && (
+                <Box sx={{ p: 2, borderTop: '1px solid rgba(0, 0, 0, 0.12)', bgcolor: '#f9f9f9' }}>
+                    <Typography variant="body2" color="text.secondary" align="center">
+                        Showing all {data.length} members of this group
+                    </Typography>
+                </Box>
+            )}
+        </Card>
     );
 }

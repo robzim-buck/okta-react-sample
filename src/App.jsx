@@ -15,7 +15,9 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OktaAuth, toRelativeUrl } from '@okta/okta-auth-js';
 import { Security } from '@okta/okta-react';
-import { Box, Container, Grid } from '@mui/material';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
 import config from './config';
 import Navbar from './Navbar';
 import AppRoutes from './components/Routes';
@@ -40,7 +42,7 @@ const App = () => {
           left: 0,
           top: 0,
           zIndex: 100,
-          backgroundColor: '#ffffff'
+          backgroundColor: 'transparent'
         }}>
           <Box sx={{ height: '100vh', overflowY: 'auto' }}>
             <Navbar />
@@ -52,7 +54,8 @@ const App = () => {
           flexGrow: 1, 
           p: 3, 
           height: '100vh',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          backgroundColor: 'transparent'
         }}>
           <AppRoutes />
         </Box>

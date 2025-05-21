@@ -26,13 +26,11 @@ export default function JAMFMachineInfo(props) {
       {
         queryKey: ["jamf_machine_info"],
         queryFn: () =>
-        fetch("https://laxcoresrv.buck.local:8000/jamf/computers_from_mongo",
-          {
-            methood: "GET",
-            headers: {"x-token": "a4taego8aerg;oeu;ghak1934570283465g23745693^+&%^$#$#^$#^#nrghaoiughnoaergfo",
-                    "Content-type": "application/json"
-            }
-          },
+        fetch("https://laxcoresrv.buck.local:8000/mongo/jamf_computers_from_mongo?count=999", {
+          headers: {
+            'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+          }
+        },
         ).then((res) => res.json()),
       },
     ]

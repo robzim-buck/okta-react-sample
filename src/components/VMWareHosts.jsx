@@ -35,7 +35,11 @@ export default function VMWareHosts(props) {
       {
         queryKey: ["vmwarehosts"],
         queryFn: () =>
-        fetch("https://laxcoresrv.buck.local:8000/vmware_hosts").then((res) => res.json()),
+        fetch('https://laxcoresrv.buck.local:8000/vmware/vmware_hosts', {
+          headers: {
+            'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+          }
+        }).then((res) => res.json()),
       },
     ]
   });
