@@ -51,7 +51,7 @@ const OnboardNewUser = lazy(() => import('./OnboardNewUser'));
 
 
 const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co"
-const ITEmails = "harry.youngjones@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,joe.wou@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co"
+const ITEmails = "harry.youngjones@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co"
 
 
 // Loading component for Suspense fallback

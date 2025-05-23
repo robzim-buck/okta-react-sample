@@ -3,11 +3,12 @@ import {
   Typography, Container, Paper, Box, CircularProgress, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Avatar, Chip, TextField, InputAdornment, FormControl,
-  Select, MenuItem, InputLabel, TableSortLabel
+  Select, MenuItem, InputLabel, TableSortLabel, Tooltip
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useOktaAuth } from '@okta/okta-react';
 import { useQuery } from '@tanstack/react-query';
+import { useProtectedApiGet } from '../hooks/useApi';
 
 export default function DocusignUsers(props) {
   // Always declare these hooks first, regardless of rendering path
@@ -45,6 +46,111 @@ export default function DocusignUsers(props) {
     retry: 2,
     retryDelay: 1000
   });
+
+  // Fetch Google staff users with React Query
+  const googleStaffUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
+    queryParams: { status: 'active', emp_type: 'Staff' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000
+    }
+  });
+
+  // Fetch Google freelance users with React Query
+  const googleFreelanceUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
+    queryParams: { status: 'active', emp_type: 'Freelance' },
+    queryConfig: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: false,
+      retry: 2,
+      retryDelay: 1000
+    },
+    dependencies: ['freelance'] // Add to query key to differentiate from staff query
+  });
+
+  // Combine and process Google users data
+  const googleUsers = useMemo(() => {
+    if (googleStaffUsersQuery.isLoading || googleFreelanceUsersQuery.isLoading) {
+      return [];
+    }
+    
+    if (googleStaffUsersQuery.error || googleFreelanceUsersQuery.error) {
+      console.error("Error fetching Google users");
+      return [];
+    }
+
+    const staffData = googleStaffUsersQuery.data || [];
+    const freelanceData = googleFreelanceUsersQuery.data || [];
+    
+    // Combine both sets of users
+    const data = [...staffData, ...freelanceData];
+    console.log("Combined Google users:", data.length);
+    
+    // Process Google user data to normalize thumbnail URLs
+    const processedData = data.map(user => {
+      // Check for thumbnail in various possible property names
+      const thumbnailUrl = user?.thumbnailPhotoUrl || user?.thumbnail || user?.photo || user?.photoUrl;
+      
+      if (thumbnailUrl && !user.thumbnailPhotoUrl) {
+        // Add standardized property name if found in an alternative property
+        return { ...user, thumbnailPhotoUrl: thumbnailUrl };
+      }
+      
+      return user;
+    });
+    
+    // Count users with thumbnails
+    const usersWithThumbnails = processedData.filter(user => user.thumbnailPhotoUrl).length;
+    console.log(`Google users with thumbnails: ${usersWithThumbnails}`);
+    
+    return processedData;
+  }, [googleStaffUsersQuery.data, googleFreelanceUsersQuery.data, 
+      googleStaffUsersQuery.isLoading, googleFreelanceUsersQuery.isLoading,
+      googleStaffUsersQuery.error, googleFreelanceUsersQuery.error]);
+  
+  // Create Google user lookup by email
+  const googleUsersByEmail = useMemo(() => {
+    if (!googleUsers.length) return {};
+    
+    const emailMap = {};
+    
+    googleUsers.forEach(user => {
+      if (user?.primaryEmail) {
+        emailMap[user.primaryEmail.toLowerCase()] = user;
+        
+        // Also store by username part only (before the @) for flexible matching
+        const username = user.primaryEmail.split('@')[0].toLowerCase();
+        if (username) {
+          emailMap[username] = user;
+        }
+      }
+    });
+    
+    console.log(`Created Google user map with ${Object.keys(emailMap).length} entries`);
+    return emailMap;
+  }, [googleUsers]);
+  
+  // Helper function to get Google user for a Docusign user
+  const getGoogleUserForDocusignUser = (docusignUser) => {
+    if (!docusignUser?.email) return null;
+    
+    const email = docusignUser.email.toLowerCase();
+    
+    // Try exact email match first
+    if (googleUsersByEmail[email]) {
+      return googleUsersByEmail[email];
+    }
+    
+    // Try username part only
+    const username = email.split('@')[0].toLowerCase();
+    if (username && googleUsersByEmail[username]) {
+      return googleUsersByEmail[username];
+    }
+    
+    return null;
+  };
   
   // Extract unique user statuses - always call useMemo
   const userStatuses = useMemo(() => {
@@ -206,8 +312,13 @@ export default function DocusignUsers(props) {
     return stabilizedThis.map((el) => el[0]);
   }
 
+  // Determine loading state
+  const isLoadingComplete = isLoading || 
+                           googleStaffUsersQuery.isLoading || 
+                           googleFreelanceUsersQuery.isLoading;
+
   // Render loading state
-  if (isLoading) {
+  if (isLoadingComplete) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
@@ -379,20 +490,53 @@ export default function DocusignUsers(props) {
             {filteredAndSortedUsers.map((user, index) => {
               const isActive = user.user_status?.toLowerCase() === 'active';
               const uniqueKey = `docusign-user-${index}`;
+              const googleUser = getGoogleUserForDocusignUser(user);
 
               return (
                 <TableRow key={uniqueKey}>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: isActive ? '#2E7D32' : 'text.disabled',
-                          width: 32,
-                          height: 32
-                        }}
-                      >
-                        {getUserInitials(user)}
-                      </Avatar>
+                      {googleUser?.thumbnailPhotoUrl ? (
+                        <Tooltip title="Google profile photo">
+                          <Avatar
+                            src={googleUser.thumbnailPhotoUrl}
+                            alt={getUserInitials(user)}
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              border: '2px solid #8c9eff',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              bgcolor: isActive ? '#2E7D32' : '#757575',
+                              color: 'white',
+                              fontSize: '0.875rem',
+                              fontWeight: 'bold',
+                              '& img': {
+                                loading: 'lazy'
+                              }
+                            }}
+                            onError={() => {
+                              console.log("Image failed to load for:", user.email);
+                            }}
+                          >
+                            {getUserInitials(user)}
+                          </Avatar>
+                        </Tooltip>
+                      ) : (
+                        <Avatar
+                          sx={{
+                            bgcolor: isActive ? '#2E7D32' : '#757575',
+                            color: 'white',
+                            width: 32,
+                            height: 32,
+                            fontSize: '0.875rem',
+                            fontWeight: 'bold',
+                            border: '2px solid #8c9eff',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          {getUserInitials(user)}
+                        </Avatar>
+                      )}
                       <Box>
                         {user.user_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A'}
                         {user.job_title && (

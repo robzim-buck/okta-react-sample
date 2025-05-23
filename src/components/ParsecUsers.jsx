@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useQueries } from "@tanstack/react-query";
-import { useApiGet } from '../hooks/useApi';
+import { useProtectedApiGet } from '../hooks/useApi';
 import uuid from 'react-uuid';
 import { useState, useMemo } from 'react';
 
@@ -16,16 +16,27 @@ export default function ParsecUsers({ name = "Parsec" }) {
 
   // Get user initials for avatar fallback
   const getUserInitials = (user) => {
-    if (!user.name) return 'PU'; // Parsec User
-
-    const nameParts = user.name.split(' ');
-    if (nameParts.length >= 2) {
-      return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
-    } else if (nameParts.length === 1 && nameParts[0]) {
-      return nameParts[0][0].toUpperCase();
+    // Try to get initials from user name
+    if (user?.name && typeof user.name === 'string' && user.name.trim()) {
+      const nameParts = user.name.trim().split(/\s+/).filter(part => part.length > 0);
+      if (nameParts.length >= 2) {
+        return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+      } else if (nameParts.length === 1) {
+        return nameParts[0][0].toUpperCase();
+      }
+    }
+    
+    // Fallback to email if name is not available
+    if (user?.email && typeof user.email === 'string' && user.email.trim()) {
+      const emailUsername = user.email.split('@')[0];
+      if (emailUsername.length >= 2) {
+        return `${emailUsername[0]}${emailUsername[1]}`.toUpperCase();
+      } else if (emailUsername.length === 1) {
+        return emailUsername[0].toUpperCase();
+      }
     }
 
-    return 'PU'; // Parsec User
+    return 'PU'; // Parsec User - final fallback
   };
 
   // Fetch Parsec users
@@ -40,7 +51,7 @@ export default function ParsecUsers({ name = "Parsec" }) {
   });
 
   // Fetch Google staff users
-  const googleStaffUsersQuery = useApiGet('/buckgoogleusers', {
+  const googleStaffUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
     queryParams: { status: 'active', emp_type: 'Staff' },
     queryConfig: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -51,7 +62,7 @@ export default function ParsecUsers({ name = "Parsec" }) {
   });
 
   // Fetch Google freelance users
-  const googleFreelanceUsersQuery = useApiGet('/buckgoogleusers', {
+  const googleFreelanceUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
     queryParams: { status: 'active', emp_type: 'Freelance' },
     queryConfig: {
       staleTime: 5 * 60 * 1000,
@@ -65,20 +76,39 @@ export default function ParsecUsers({ name = "Parsec" }) {
   // Combine Google users data
   const googleUsers = useMemo(() => {
     if (googleStaffUsersQuery.isLoading || googleFreelanceUsersQuery.isLoading) {
+      console.log("Google users still loading...");
       return [];
     }
 
     if (googleStaffUsersQuery.error || googleFreelanceUsersQuery.error) {
-      console.error("Error fetching Google users");
+      console.error("Error fetching Google users:", {
+        staffError: googleStaffUsersQuery.error,
+        freelanceError: googleFreelanceUsersQuery.error
+      });
       return [];
     }
 
     const staffData = googleStaffUsersQuery.data || [];
     const freelanceData = googleFreelanceUsersQuery.data || [];
 
+    console.log("Raw Google data:", {
+      staffCount: staffData.length,
+      freelanceCount: freelanceData.length,
+      staffSample: staffData.slice(0, 2),
+      freelanceSample: freelanceData.slice(0, 2)
+    });
+
     // Combine both sets of users
     const data = [...staffData, ...freelanceData];
     console.log("Combined Google users:", data.length);
+    
+    // Check if users have photo URLs
+    const usersWithPhotos = data.filter(user => user?.thumbnailPhotoUrl);
+    console.log(`Users with photos: ${usersWithPhotos.length} out of ${data.length}`);
+    
+    if (usersWithPhotos.length > 0) {
+      console.log("Sample user with photo:", usersWithPhotos[0]);
+    }
 
     return data;
   }, [googleStaffUsersQuery.data, googleFreelanceUsersQuery.data,
@@ -109,21 +139,39 @@ export default function ParsecUsers({ name = "Parsec" }) {
 
   // Helper function to get Google user for a Parsec user
   const getGoogleUserForParsecUser = (parsecUser) => {
-    if (!parsecUser?.email) return null;
+    if (!parsecUser?.email) {
+      console.log('No email for Parsec user:', parsecUser);
+      return null;
+    }
 
     const email = parsecUser.email.toLowerCase();
+    console.log('Looking for Google user for email:', email);
 
     // Try exact email match first
     if (googleUsersByEmail[email]) {
-      return googleUsersByEmail[email];
+      const googleUser = googleUsersByEmail[email];
+      console.log('Found Google user by exact email:', {
+        email: googleUser.primaryEmail,
+        hasPhoto: !!googleUser.thumbnailPhotoUrl,
+        photoUrl: googleUser.thumbnailPhotoUrl
+      });
+      return googleUser;
     }
 
     // Try username part only
     const username = email.split('@')[0].toLowerCase();
     if (username && googleUsersByEmail[username]) {
-      return googleUsersByEmail[username];
+      const googleUser = googleUsersByEmail[username];
+      console.log('Found Google user by username:', {
+        username,
+        email: googleUser.primaryEmail,
+        hasPhoto: !!googleUser.thumbnailPhotoUrl,
+        photoUrl: googleUser.thumbnailPhotoUrl
+      });
+      return googleUser;
     }
 
+    console.log('No Google user found for:', email, 'Available keys:', Object.keys(googleUsersByEmail).slice(0, 5));
     return null;
   };
 
@@ -170,27 +218,37 @@ export default function ParsecUsers({ name = "Parsec" }) {
                                         googleUser.organizations[0]?.costCenter &&
                                         googleUser.organizations[0].costCenter.toLowerCase() === 'freelance';
 
+                    console.log(`Rendering avatar for ${item.email}:`, {
+                      hasGoogleUser: !!googleUser,
+                      hasThumbnailUrl: !!googleUser?.thumbnailPhotoUrl,
+                      thumbnailUrl: googleUser?.thumbnailPhotoUrl,
+                      isFreelance
+                    });
+
                     if (googleUser?.thumbnailPhotoUrl) {
+                      console.log(`Showing photo for ${item.email}:`, googleUser.thumbnailPhotoUrl);
                       return (
                         <Tooltip title={isFreelance ? "Freelancer - Google profile photo" : "Google profile photo"}>
                           <Avatar
                             src={googleUser.thumbnailPhotoUrl}
                             alt={getUserInitials(item)}
-                            imgProps={{
-                              loading: "lazy",
-                              referrerPolicy: "no-referrer",
-                              onError: (e) => {
-                                console.log("Image failed to load for:", item.email);
-                                e.target.style.display = 'none';
-                              }
-                            }}
                             sx={{
                               width: 48,
                               height: 48,
                               border: isFreelance
                                 ? '2px solid #f50057'  // Freelancer border
                                 : '2px solid #8c9eff', // Staff border
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              bgcolor: 'primary.main',
+                              color: 'white',
+                              fontSize: '1rem',
+                              fontWeight: 'bold',
+                              '& img': {
+                                loading: 'lazy'
+                              }
+                            }}
+                            onError={() => {
+                              console.log("Image failed to load for:", item.email, "URL:", googleUser.thumbnailPhotoUrl);
                             }}
                           >
                             {getUserInitials(item)}
@@ -198,14 +256,18 @@ export default function ParsecUsers({ name = "Parsec" }) {
                         </Tooltip>
                       );
                     } else {
+                      console.log(`No photo for ${item.email}, using initials:`, getUserInitials(item));
                       return (
                         <Avatar
                           sx={{
                             width: 48,
                             height: 48,
                             bgcolor: 'primary.main',
+                            color: 'white',
                             border: '2px solid #8c9eff',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            fontSize: '1rem',
+                            fontWeight: 'bold'
                           }}
                         >
                           {getUserInitials(item)}

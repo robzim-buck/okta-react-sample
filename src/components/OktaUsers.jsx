@@ -618,14 +618,6 @@ export default function OktaUsers(props) {
                             <Avatar
                               src={googleUser.thumbnailPhotoUrl}
                               alt={getUserInitials(user)}
-                              imgProps={{
-                                loading: "lazy",
-                                referrerPolicy: "no-referrer",
-                                onError: (e) => {
-                                  console.log("Image failed to load for:", user.profile?.email);
-                                  e.target.style.display = 'none';
-                                }
-                              }}
                               sx={{
                                 width: 32,
                                 height: 32,
@@ -634,7 +626,17 @@ export default function OktaUsers(props) {
                                         googleUser.organizations[0].costCenter.toLowerCase() === 'freelance')
                                   ? '2px solid #f50057'
                                   : '2px solid #8c9eff',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                bgcolor: isActive ? 'primary.main' : 'text.disabled',
+                                color: 'white',
+                                fontSize: '0.8rem',
+                                fontWeight: 'bold',
+                                '& img': {
+                                  loading: 'lazy'
+                                }
+                              }}
+                              onError={() => {
+                                console.log("Image failed to load for:", user.profile?.email);
                               }}
                             >
                               {getUserInitials(user)}
@@ -644,8 +646,13 @@ export default function OktaUsers(props) {
                           <Avatar 
                             sx={{ 
                               bgcolor: isActive ? 'primary.main' : 'text.disabled',
+                              color: 'white',
                               width: 32, 
-                              height: 32 
+                              height: 32,
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              border: '2px solid #8c9eff',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                             }}
                           >
                             {getUserInitials(user)}

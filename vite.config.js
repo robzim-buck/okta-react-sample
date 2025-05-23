@@ -32,6 +32,7 @@ export default defineConfig(({ _, mode }) => {
       'CLIENT_ID': JSON.stringify(env.CLIENT_ID),
       'process.env.NODE_ENV': JSON.stringify(mode)
     },
+    publicDir: 'public', // Ensure public directory is properly processed
     build: {
       target: 'es2015', // Modern browsers support
       minify: 'terser', // Better minification

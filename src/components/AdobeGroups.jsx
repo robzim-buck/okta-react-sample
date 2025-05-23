@@ -1,11 +1,12 @@
 import uuid from 'react-uuid';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { Typography, Button, IconButton, Divider, List, ListItem, ListItemText, ListItemAvatar, Avatar, Tooltip } from '@mui/material';
 import { Chip, Grid, Box, Card, CardContent, Collapse, Paper, Alert } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import GroupIcon from '@mui/icons-material/Group';
 import PersonIcon from '@mui/icons-material/Person';
+import { useProtectedApiGet } from '../hooks/useApi';
 
 export default function AdobeGroups(props) {
     const [groupFilter, setGroupFilter] = useState('');   
@@ -22,6 +23,112 @@ export default function AdobeGroups(props) {
         },
         ]
     });
+
+    // Fetch Google staff users
+    const googleStaffUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
+        queryParams: { status: 'active', emp_type: 'Staff' },
+        queryConfig: {
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            refetchOnWindowFocus: false,
+            retry: 2,
+            retryDelay: 1000
+        }
+    });
+
+    // Fetch Google freelance users
+    const googleFreelanceUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
+        queryParams: { status: 'active', emp_type: 'Freelance' },
+        queryConfig: {
+            staleTime: 5 * 60 * 1000,
+            refetchOnWindowFocus: false,
+            retry: 2,
+            retryDelay: 1000
+        },
+        dependencies: ['freelance'] // Add to query key to differentiate from staff query
+    });
+
+    // Combine and process Google users data
+    const googleUsers = useMemo(() => {
+        if (googleStaffUsersQuery.isLoading || googleFreelanceUsersQuery.isLoading) {
+            return [];
+        }
+        
+        if (googleStaffUsersQuery.error || googleFreelanceUsersQuery.error) {
+            console.error("Error fetching Google users");
+            return [];
+        }
+
+        const staffData = googleStaffUsersQuery.data || [];
+        const freelanceData = googleFreelanceUsersQuery.data || [];
+        
+        // Combine both sets of users
+        const data = [...staffData, ...freelanceData];
+        console.log("Combined Google users for Adobe Groups:", data.length);
+        
+        // Process Google user data to normalize thumbnail URLs
+        const processedData = data.map(user => {
+            // Check for thumbnail in various possible property names
+            const thumbnailUrl = user?.thumbnailPhotoUrl || user?.thumbnail || user?.photo || user?.photoUrl;
+            
+            if (thumbnailUrl && !user.thumbnailPhotoUrl) {
+                // Add standardized property name if found in an alternative property
+                return { ...user, thumbnailPhotoUrl: thumbnailUrl };
+            }
+            
+            return user;
+        });
+        
+        // Count users with thumbnails
+        const usersWithThumbnails = processedData.filter(user => user.thumbnailPhotoUrl).length;
+        console.log(`Google users with thumbnails for Adobe Groups: ${usersWithThumbnails}`);
+        
+        return processedData;
+    }, [googleStaffUsersQuery.data, googleFreelanceUsersQuery.data, 
+        googleStaffUsersQuery.isLoading, googleFreelanceUsersQuery.isLoading,
+        googleStaffUsersQuery.error, googleFreelanceUsersQuery.error]);
+    
+    // Create Google user lookup by email
+    const googleUsersByEmail = useMemo(() => {
+        if (!googleUsers.length) return {};
+        
+        const emailMap = {};
+        
+        googleUsers.forEach(user => {
+            if (user?.primaryEmail) {
+                emailMap[user.primaryEmail.toLowerCase()] = user;
+                
+                // Also store by username part only (before the @) for flexible matching
+                const username = user.primaryEmail.split('@')[0].toLowerCase();
+                if (username) {
+                    emailMap[username] = user;
+                }
+            }
+        });
+        
+        console.log(`Created Google user map for Adobe Groups with ${Object.keys(emailMap).length} entries`);
+        return emailMap;
+    }, [googleUsers]);
+    
+    // Helper function to get Google user for an Adobe group member
+    const getGoogleUserForAdobeUser = (adobeUser) => {
+        if (!adobeUser?.email && !adobeUser?.username) return null;
+
+        const email = adobeUser.email?.toLowerCase() || adobeUser.username?.toLowerCase();
+        if (!email) return null;
+
+        // Try exact email match first
+        if (googleUsersByEmail[email]) {
+            return googleUsersByEmail[email];
+        }
+
+        // Try username part only
+        const username = email.split('@')[0].toLowerCase();
+        if (username && googleUsersByEmail[username]) {
+            return googleUsersByEmail[username];
+        }
+
+        return null;
+    };
 
     const clearGroupFilter = () => {
         setGroupFilter('');
@@ -51,7 +158,12 @@ export default function AdobeGroups(props) {
         }
     }
 
-    if (adobeGroups.isLoading) return <CircularProgress></CircularProgress>;
+    // Check if any data is still loading
+    const isLoadingComplete = adobeGroups.isLoading || 
+                              googleStaffUsersQuery.isLoading || 
+                              googleFreelanceUsersQuery.isLoading;
+
+    if (isLoadingComplete) return <CircularProgress></CircularProgress>;
     if (adobeGroups.error) return "An error has occurred: " + adobeGroups.error.message;
     if (adobeGroups.data) {
         // Sort data by group name
@@ -368,7 +480,10 @@ export default function AdobeGroups(props) {
                                                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'text.primary', display: 'flex', alignItems: 'center' }}>
                                                             <GroupIcon sx={{ mr: 1 }} /> Group Members
                                                         </Typography>
-                                                        <GroupMembers groupName={group.groupName} />
+                                                        <GroupMembers 
+                                                            groupName={group.groupName} 
+                                                            getGoogleUserForAdobeUser={getGoogleUserForAdobeUser}
+                                                        />
                                                     </Box>
                                                 )}
                                             </Box>
@@ -394,7 +509,7 @@ export default function AdobeGroups(props) {
 }
 
 // Group Members Component
-function GroupMembers({ groupName }) {
+function GroupMembers({ groupName, getGoogleUserForAdobeUser }) {
     // URL encode the group name for the API request
     const encodedGroupName = encodeURIComponent(groupName);
     
@@ -525,6 +640,12 @@ function GroupMembers({ groupName }) {
                                 .toUpperCase()
                                 .substring(0, 2);
                         }
+
+                        // Get Google user data for this Adobe user
+                        const googleUser = getGoogleUserForAdobeUser ? getGoogleUserForAdobeUser(user) : null;
+                        const isFreelance = googleUser?.organizations &&
+                                          googleUser.organizations[0]?.costCenter &&
+                                          googleUser.organizations[0].costCenter.toLowerCase() === 'freelance';
                             
                         return (
                             <ListItem 
@@ -538,23 +659,63 @@ function GroupMembers({ groupName }) {
                                 }}
                             >
                                 <ListItemAvatar>
-                                    <Avatar 
-                                        sx={{ 
-                                            bgcolor: initials ? 'primary.light' : 'primary.main',
-                                            fontWeight: 'bold'
-                                        }}
-                                    >
-                                        {initials || <PersonIcon />}
-                                    </Avatar>
+                                    {googleUser?.thumbnailPhotoUrl ? (
+                                        <Tooltip title={isFreelance ? "Freelancer - Google profile photo" : "Google profile photo"}>
+                                            <Avatar 
+                                                src={googleUser.thumbnailPhotoUrl}
+                                                alt={initials}
+                                                onError={() => {
+                                                    console.log("Image failed to load for:", user.email || user.username);
+                                                }}
+                                                sx={{ 
+                                                    bgcolor: initials ? 'primary.light' : 'primary.main',
+                                                    fontWeight: 'bold',
+                                                    color: 'white',
+                                                    border: isFreelance
+                                                        ? '2px solid #f50057'  // Freelancer border
+                                                        : '2px solid #8c9eff', // Staff border
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                                    '& img': {
+                                                        loading: 'lazy'
+                                                    }
+                                                }}
+                                            >
+                                                {initials || <PersonIcon />}
+                                            </Avatar>
+                                        </Tooltip>
+                                    ) : (
+                                        <Avatar 
+                                            sx={{ 
+                                                bgcolor: initials ? 'primary.light' : 'primary.main',
+                                                fontWeight: 'bold',
+                                                color: 'white',
+                                                border: '2px solid #8c9eff',
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                            }}
+                                        >
+                                            {initials || <PersonIcon />}
+                                        </Avatar>
+                                    )}
                                 </ListItemAvatar>
                                 <ListItemText
                                     primary={
-                                        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                                            {/* Format name from firstname/lastname if available */}
-                                            {user.firstname && user.lastname 
-                                                ? `${user.firstname} ${user.lastname}`
-                                                : user.name || user.userName || user.username || user.email || 'Unknown User'}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                                {/* Format name from firstname/lastname if available */}
+                                                {user.firstname && user.lastname 
+                                                    ? `${user.firstname} ${user.lastname}`
+                                                    : user.name || user.userName || user.username || user.email || 'Unknown User'}
+                                            </Typography>
+                                            {isFreelance && (
+                                                <Chip 
+                                                    label="Freelance" 
+                                                    size="small" 
+                                                    color="error" 
+                                                    variant="outlined"
+                                                    sx={{ height: 20, fontSize: '0.7rem' }}
+                                                />
+                                            )}
+                                        </Box>
                                     }
                                     secondary={
                                         <Box>

@@ -2,7 +2,7 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import { useEffect, useState, Component } from 'react';
 import { Typography, Button, Chip, Select, MenuItem } from '@mui/material';
-import { Paper, Grid } from '@mui/material'
+import { Paper, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Box } from '@mui/material'
 import uuid from 'react-uuid';
 import CircularProgress from '@mui/material/CircularProgress';
 import { DatePicker, LocalizationProvider }  from '@mui/x-date-pickers';
@@ -103,7 +103,7 @@ export default function SalesOrders(props) {
         return (
             <>
             <ErrorBoundary>
-            <Typography variant='h3'>{table} {props.name} </Typography>
+            <Typography variant='h4' gutterBottom>{table} {props.name} </Typography>
             <Select
                 labelId="invoice-table-select-id"
                 id="table-select"
@@ -113,84 +113,81 @@ export default function SalesOrders(props) {
             <MenuItem value='SANDBOX'>Sandbox</MenuItem>
             <MenuItem value='PRODUCTION'>Production</MenuItem>
             </Select>
-            <p>
-              Type to filter Job Codes: &nbsp; &nbsp;
-              <input id="filter"
-                name="filter"
-                type="text"
-                value={jobfilter}
-                onChange={event => setJobfilter(event.target.value)}
-              /> &nbsp; &nbsp;
-                <Button onClick={clearJobFilter} size="small" variant="contained">Clear Job Filter</Button>&nbsp; &nbsp;
-              <ErrorBoundary>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                    label="Filter on Trigger Date"
-                    value={datePickerValue}
-                    onChange={(newValue) => {
-                        // setDatePickerValue(newValue);
-                        // console.log('DATE PICKER VALUE = ', datePickerValue);
-                        console.log('new value ', newValue);
-                        setValueString(newValue.format('YYYY-MM-DD'));
-                    }}
-                />
-                </LocalizationProvider>
-                </ErrorBoundary>
-                &nbsp; &nbsp;
-                <Button onClick={clearDateFilter} size="small" variant="contained">Clear Date Filter</Button>&nbsp; &nbsp;
-              
-            </p>
-            <ul>
-                {filteredData.map((item) => {
-                    // console.log(item)
-                    return <li key={uuid()}>
-                            <Paper variant="outlined">
-                                <Grid container columns={10}>
-                                    <Grid item xs={1}>
-                                        <Chip label="Job Code"></Chip>
-                                        <Typography variant='body1'>{item.jobcode}</Typography>
-                                    </Grid>
-                                    <Grid item xs={1}>
-                                        <Chip label="Job ID"></Chip>
-                                        <Typography variant='body1'>{item.jobid}</Typography>
-                                    </Grid>
-                                    <Grid item xs={1}>
-                                        <Chip label="Sales Order ID"></Chip>
-                                        <Typography variant='body1'>{item.salesorderid}</Typography>
-                                    </Grid>
-                                    {/* <Grid item xs={1}>
-                                        <Chip label="Invoice ID"></Chip>
-                                        <Typography variant='body1'>{item.invoiceid}</Typography>
-                                    </Grid> */}
-                                    <Grid item xs={1}>
-                                        <Chip label="Processed At"></Chip>
-                                        <Typography variant='body1'>{item.timestamp.replace('2024-','')}</Typography>
-                                    </Grid>
-                                    <Grid item xs={1}>
-                                        <Chip label="Trigger Date"></Chip>
-                                        <Typography variant='body1'>{item.triggerdate.split('T')[0].replace('2024-','')}</Typography>
-                                    </Grid>
-                                    <Grid item xs={1}>
-                                        <Chip label="Amount"></Chip>
-                                        <Typography variant='body1'>{USDollar.format(item.amount/100.0)}</Typography>
-                                    </Grid>
-                                    <Grid item xs={2}>
-                                        <Chip label="RowName"></Chip>
-                                        <Typography variant='body1'>{item.rowname}</Typography>
-                                    </Grid>
-                                    <Grid item xs={1}>
-                                        <Chip label="Created At"></Chip>
-                                        <Typography variant='body1'>{item.created.replace('/2024','')}</Typography>
-                                    </Grid>
-                                </Grid>
-                            </Paper>
-                           </li>
-                })}
-            </ul>
+            <Box sx={{ my: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item>
+                        <Typography variant="body1">Filter Job Codes:</Typography>
+                    </Grid>
+                    <Grid item>
+                        <input id="filter"
+                            name="filter"
+                            type="text"
+                            value={jobfilter}
+                            onChange={event => setJobfilter(event.target.value)}
+                            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                        />
+                    </Grid>
+                    <Grid item>
+                        <Button onClick={clearJobFilter} size="small" variant="outlined" disabled={!jobfilter}>Clear Job Filter</Button>
+                    </Grid>
+                    <Grid item>
+                        <ErrorBoundary>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <DatePicker
+                                    label="Filter on Trigger Date"
+                                    value={datePickerValue}
+                                    onChange={(newValue) => {
+                                        if (newValue) {
+                                            setValueString(newValue.format('YYYY-MM-DD'));
+                                            setDatePickerValue(newValue)
+                                        } else {
+                                            setValueString('');
+                                            setDatePickerValue(null);
+                                        }
+                                    }}
+                                />
+                            </LocalizationProvider>
+                        </ErrorBoundary>
+                    </Grid>
+                    <Grid item>
+                        <Button onClick={clearDateFilter} size="small" variant="outlined" disabled={!valueString && !datePickerValue}>Clear Date Filter</Button>
+                    </Grid>
+                </Grid>
+            </Box>
+
+            <TableContainer component={Paper} sx={{ mt: 2 }}>
+                <Table sx={{ minWidth: 650 }} aria-label="sales orders table">
+                    <TableHead sx={{ backgroundColor: 'primary.main' }}>
+                        <TableRow>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Job Code</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Job ID</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sales Order ID</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Processed At</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Trigger Date</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="right">Amount</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>RowName</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Created At</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {filteredData.map((item) => (
+                            <TableRow key={uuid()} sx={{ '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } }}>
+                                <TableCell component="th" scope="row">{item.jobcode}</TableCell>
+                                <TableCell>{item.jobid}</TableCell>
+                                <TableCell>{item.salesorderid}</TableCell>
+                                <TableCell>{item.timestamp.replace('2024-','')}</TableCell>
+                                <TableCell>{item.triggerdate.split('T')[0].replace('2024-','')}</TableCell>
+                                <TableCell align="right">{USDollar.format(item.amount/100.0)}</TableCell>
+                                <TableCell>{item.rowname}</TableCell>
+                                <TableCell>{item.created.replace('/2024','')}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
             </ErrorBoundary>
             </>
             )
     }
     if (! invoices ) return <CircularProgress></CircularProgress>;
 }
-

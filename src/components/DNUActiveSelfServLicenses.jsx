@@ -1330,4 +1330,3 @@ export default function ActiveSelfServLicenses(props) {
             </Alert>
         </Container>
     )
-}

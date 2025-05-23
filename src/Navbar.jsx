@@ -164,7 +164,7 @@ const Navbar = () => {
                 {/* Keep Add Okta User at the end, after all the display items */}
                 <ListItemButton component={Link} to="/onboardnewuser" id="onboard-user-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Add Okta User" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="OnBoard New User" primaryTypographyProps={{ fontSize: '0.875rem' }} />
                 </ListItemButton>
               </List>
             </Collapse>

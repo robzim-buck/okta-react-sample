@@ -16,7 +16,7 @@ import {
   FilterList as FilterIcon
 } from '@mui/icons-material';
 import { useQueries } from "@tanstack/react-query";
-import { useApiGet } from '../hooks/useApi';
+import { useProtectedApiGet } from '../hooks/useApi';
 
 export default function AdobeUsers() {
   // State management
@@ -39,7 +39,7 @@ export default function AdobeUsers() {
   });
   
   // Fetch Google staff users
-  const googleStaffUsersQuery = useApiGet('/buckgoogleusers', {
+  const googleStaffUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
     queryParams: { status: 'active', emp_type: 'Staff' },
     queryConfig: {
       staleTime: 5 * 60 * 1000, // 5 minutes
@@ -50,7 +50,7 @@ export default function AdobeUsers() {
   });
 
   // Fetch Google freelance users
-  const googleFreelanceUsersQuery = useApiGet('/buckgoogleusers', {
+  const googleFreelanceUsersQuery = useProtectedApiGet('/google/buckgoogleusers', {
     queryParams: { status: 'active', emp_type: 'Freelance' },
     queryConfig: {
       staleTime: 5 * 60 * 1000,
@@ -78,8 +78,25 @@ export default function AdobeUsers() {
     // Combine both sets of users
     const data = [...staffData, ...freelanceData];
     console.log("Combined Google users:", data.length);
-
-    return data;
+    
+    // Process Google user data to normalize thumbnail URLs
+    const processedData = data.map(user => {
+      // Check for thumbnail in various possible property names
+      const thumbnailUrl = user?.thumbnailPhotoUrl || user?.thumbnail || user?.photo || user?.photoUrl;
+      
+      if (thumbnailUrl && !user.thumbnailPhotoUrl) {
+        // Add standardized property name if found in an alternative property
+        return { ...user, thumbnailPhotoUrl: thumbnailUrl };
+      }
+      
+      return user;
+    });
+    
+    // Count users with thumbnails
+    const usersWithThumbnails = processedData.filter(user => user.thumbnailPhotoUrl).length;
+    console.log(`Google users with thumbnails: ${usersWithThumbnails}`);
+    
+    return processedData;
   }, [googleStaffUsersQuery.data, googleFreelanceUsersQuery.data,
       googleStaffUsersQuery.isLoading, googleFreelanceUsersQuery.isLoading,
       googleStaffUsersQuery.error, googleFreelanceUsersQuery.error]);
@@ -106,6 +123,7 @@ export default function AdobeUsers() {
     });
 
     console.log(`Created Google user map with ${Object.keys(emailMap).length} entries`);
+    console.log('Sample Google users:', googleUsers.slice(0, 2));
     return emailMap;
   }, [googleUsers]);
 
@@ -118,12 +136,14 @@ export default function AdobeUsers() {
 
     // Try exact email match first
     if (googleUsersByEmail[email]) {
+      console.log(`Found Google user for Adobe user ${email}:`, googleUsersByEmail[email].primaryEmail);
       return googleUsersByEmail[email];
     }
 
     // Try username part only
     const username = email.split('@')[0].toLowerCase();
     if (username && googleUsersByEmail[username]) {
+      console.log(`Found Google user by username ${username} for Adobe user ${email}:`, googleUsersByEmail[username].primaryEmail);
       return googleUsersByEmail[username];
     }
 
@@ -256,7 +276,11 @@ export default function AdobeUsers() {
   };
   
   // Loading state
-  if (adobeUsers.isLoading) {
+  const isLoadingComplete = adobeUsers.isLoading || 
+                           googleStaffUsersQuery.isLoading || 
+                           googleFreelanceUsersQuery.isLoading;
+
+  if (isLoadingComplete) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
@@ -456,6 +480,7 @@ export default function AdobeUsers() {
                 key={`user-${user.email || user.username}-${index}`} 
                 user={user}
                 isLast={index === currentPageItems.length - 1}
+                googleUser={getGoogleUserForAdobeUser(user)}
               />
             ))}
           </List>
@@ -485,7 +510,7 @@ export default function AdobeUsers() {
 }
 
 // Separate component for user list items
-function UserListItem({ user, isLast }) {
+function UserListItem({ user, isLast, googleUser }) {
   const [expanded, setExpanded] = useState(false);
   
   const toggleExpanded = () => {
@@ -501,9 +526,9 @@ function UserListItem({ user, isLast }) {
   
   // Determine avatar color based on user type
   const getAvatarColor = () => {
-    if (user.status !== 'active') return 'text.disabled';
-    if (user.type === 'adobeID') return 'warning.main';
-    return 'primary.main';
+    if (user.status !== 'active') return '#757575';  // Gray for inactive
+    if (user.type === 'adobeID') return '#ff9800';    // Orange for Adobe ID
+    return '#1976d2';  // Blue for federated ID
   };
   
   return (
@@ -520,7 +545,6 @@ function UserListItem({ user, isLast }) {
         <Box sx={{ display: 'flex', width: '100%', alignItems: 'flex-start' }}>
           {(() => {
             try {
-              const googleUser = getGoogleUserForAdobeUser(user);
               const isFreelance = googleUser?.organizations &&
                                 googleUser.organizations[0]?.costCenter &&
                                 googleUser.organizations[0].costCenter.toLowerCase() === 'freelance';
@@ -531,13 +555,8 @@ function UserListItem({ user, isLast }) {
                     <Avatar
                       src={googleUser.thumbnailPhotoUrl}
                       alt={getUserInitials()}
-                      imgProps={{
-                        loading: "lazy",
-                        referrerPolicy: "no-referrer",
-                        onError: (e) => {
-                          console.log("Image failed to load for:", user.email || user.username);
-                          e.target.style.display = 'none';
-                        }
+                      onError={() => {
+                        console.log("Image failed to load for:", user.email || user.username);
                       }}
                       sx={{
                         mr: 2,
@@ -546,7 +565,14 @@ function UserListItem({ user, isLast }) {
                         border: isFreelance
                           ? '2px solid #f50057'  // Freelancer border
                           : '2px solid #8c9eff', // Staff border
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        bgcolor: getAvatarColor(),
+                        color: 'white',
+                        fontSize: '1rem',
+                        fontWeight: 'bold',
+                        '& img': {
+                          loading: 'lazy'
+                        }
                       }}
                     >
                       {getUserInitials()}
@@ -563,11 +589,14 @@ function UserListItem({ user, isLast }) {
               <Avatar
                 sx={{
                   bgcolor: getAvatarColor(),
+                  color: 'white',
                   mr: 2,
                   width: 40,
                   height: 40,
                   border: '2px solid #8c9eff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
                 }}
               >
                 {getUserInitials()}
@@ -581,7 +610,6 @@ function UserListItem({ user, isLast }) {
                 {`${user.firstname || ''} ${user.lastname || ''}`}
                 {(() => {
                   try {
-                    const googleUser = getGoogleUserForAdobeUser(user);
                     const isFreelance = googleUser?.organizations &&
                                       googleUser.organizations[0]?.costCenter &&
                                       googleUser.organizations[0].costCenter.toLowerCase() === 'freelance';
@@ -739,7 +767,6 @@ function UserListItem({ user, isLast }) {
 
                 {(() => {
                   try {
-                    const googleUser = getGoogleUserForAdobeUser(user);
                     if (googleUser) return (
                   <Box sx={{ mt: 2, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
@@ -755,7 +782,6 @@ function UserListItem({ user, isLast }) {
                           <Typography variant="body2" component="span" sx={{ ml: 1 }}>
                             {(() => {
                               try {
-                                const googleUser = getGoogleUserForAdobeUser(user);
                                 return googleUser?.primaryEmail || 'N/A';
                               } catch (error) {
                                 return 'N/A';
@@ -771,7 +797,6 @@ function UserListItem({ user, isLast }) {
                           <Typography variant="body2" component="span" sx={{ ml: 1 }}>
                             {(() => {
                               try {
-                                const googleUser = getGoogleUserForAdobeUser(user);
                                 return googleUser?.name?.fullName || 'N/A';
                               } catch (error) {
                                 return 'N/A';
@@ -789,7 +814,6 @@ function UserListItem({ user, isLast }) {
                           <Typography variant="body2" component="span" sx={{ ml: 1 }}>
                             {(() => {
                               try {
-                                const googleUser = getGoogleUserForAdobeUser(user);
                                 return googleUser?.organizations?.[0]?.department || 'N/A';
                               } catch (error) {
                                 return 'N/A';
@@ -805,7 +829,6 @@ function UserListItem({ user, isLast }) {
                           <Typography variant="body2" component="span" sx={{ ml: 1 }}>
                             {(() => {
                               try {
-                                const googleUser = getGoogleUserForAdobeUser(user);
                                 return googleUser?.organizations?.[0]?.title || 'N/A';
                               } catch (error) {
                                 return 'N/A';

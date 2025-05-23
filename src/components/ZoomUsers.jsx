@@ -74,15 +74,27 @@ export default function ZoomUsers(props) {
     const firstName = user.first_name || '';
     const lastName = user.last_name || '';
     
+    // Try name fields first
     if (firstName && lastName) {
       return `${firstName[0]}${lastName[0]}`.toUpperCase();
     } else if (firstName) {
       return firstName[0].toUpperCase();
     } else if (lastName) {
       return lastName[0].toUpperCase();
-    } else {
-      return 'ZU'; // Zoom User
     }
+    
+    // Fallback to email if name fields are empty
+    if (user.email && typeof user.email === 'string' && user.email.trim()) {
+      const emailUsername = user.email.split('@')[0];
+      if (emailUsername.length >= 2) {
+        return `${emailUsername[0]}${emailUsername[1]}`.toUpperCase();
+      } else if (emailUsername.length === 1) {
+        return emailUsername[0].toUpperCase();
+      }
+    }
+    
+    // Final fallback
+    return 'ZU'; // Zoom User
   };
 
   // Extract unique user types - call useMemo regardless of loading/error state
@@ -502,21 +514,23 @@ export default function ZoomUsers(props) {
                         <Avatar
                           src={user.pic_url}
                           alt={getUserInitials(user)}
-                          imgProps={{
-                            loading: "lazy",
-                            referrerPolicy: "no-referrer",
-                            onError: (e) => {
-                              console.log("Image failed to load for:", user.email);
-                              e.target.style.display = 'none';
-                            }
-                          }}
                           sx={{
                             width: 32,
                             height: 32,
                             border: isLicensed
                               ? '2px solid #2D8CFF' // Zoom blue
                               : '2px solid #8c9eff',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            bgcolor: isLicensed ? '#2D8CFF' : 'primary.main',
+                            color: 'white',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            '& img': {
+                              loading: 'lazy'
+                            }
+                          }}
+                          onError={() => {
+                            console.log("Image failed to load for:", user.email);
                           }}
                         >
                           {getUserInitials(user)}
@@ -524,9 +538,16 @@ export default function ZoomUsers(props) {
                       ) : (
                         <Avatar
                           sx={{
-                            bgcolor: isLicensed ? '#2D8CFF' : 'text.disabled',
+                            bgcolor: isLicensed ? '#2D8CFF' : 'primary.main',
+                            color: 'white',
                             width: 32,
-                            height: 32
+                            height: 32,
+                            border: isLicensed
+                              ? '2px solid #2D8CFF'
+                              : '2px solid #8c9eff',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold'
                           }}
                         >
                           {getUserInitials(user)}

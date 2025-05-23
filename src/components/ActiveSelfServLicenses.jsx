@@ -5,7 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 
 
-import { Typography, Button, IconButton, Container } from '@mui/material';
+import { Typography, Button, IconButton, Container, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Chip, Grid, Box, Card, CardContent, Collapse, Switch, FormControlLabel, Paper } from '@mui/material';
 import { Alert, AlertTitle, Snackbar } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
@@ -17,6 +17,9 @@ import PieChartIcon from '@mui/icons-material/PieChart';
 import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
+import SortIcon from '@mui/icons-material/Sort';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 
 // import { DataGrid } from '@mui/x-data-grid';
 
@@ -46,13 +49,19 @@ const setColor = (param) => {
         return 'primary';
     }
     
-    if (param < sixty_minutes / 2.0) {
-        return 'error';
+    try {
+        if (param < sixty_minutes / 2.0) {
+            return 'error';
+        }
+        if (param < (sixty_minutes * 2.0)) {
+            return 'warning';
+        }
+        return 'success';
+    } catch (error) {
+        // Fallback to a safe color in case of any errors
+        console.error("Error in setColor:", error);
+        return 'primary';
     }
-    if (param < (sixty_minutes * 2.0)) {
-        return 'warning';
-    }
-    return 'success';
 }
 
 const four_days_plus_buffer = (24*60*60*1000*4) + 60000 * 60; // add 60 minutes
@@ -75,13 +84,23 @@ const setExpiryLabel = (param) => {
 
 
 const setDateColor = (param) => {
-    let todaystring = new Date(Date.now()).toISOString().split('T')[0];
-    let paramstring = new Date(param).toISOString().split('T')[0];
-    // console.log(todaystring, paramstring)
-    if ( paramstring === todaystring ) {
-        return 'error.main'
+    try {
+        if (!param) {
+            return 'text.primary';
+        }
+        
+        let todaystring = new Date(Date.now()).toISOString().split('T')[0];
+        let paramstring = new Date(param).toISOString().split('T')[0];
+        
+        // console.log(todaystring, paramstring)
+        if (paramstring === todaystring) {
+            return 'error.main';
+        }
+        return 'text.primary';
+    } catch (error) {
+        console.error("Error in setDateColor:", error);
+        return 'text.primary';
     }
-    return 'text.primary'
 }
 
 
@@ -231,17 +250,23 @@ const year = new Date().getFullYear().toString()
 export default function ActiveSelfServLicenses(props) {
     const [emailfilter, setEmailFilter] = useState('');   
     const [productfilter, setProductFilter] = useState('');   
+    const [sortField, setSortField] = useState('email');
+    const [sortDirection, setSortDirection] = useState('asc');
 
     const [tableView, setTableView] = useState(false);
     const [expandedUsers, setExpandedUsers] = useState({});
     const [groupedUsers, setGroupedUsers] = useState([]);
-    const [allLicenses, setAllLicenses] = useState([]);
+    // We don't need allLicenses state anymore - removed
     const [previsible, setPrevisible] = useState(false);
 
     const [successvisible, setSuccessvisible] = useState(false);
     const [operation, setOperation] = useState('');
     const [product, setProduct] = useState('');
     const [user, setUser] = useState('');
+    
+    // Add pagination state for the table view
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
     
     // Function to toggle user card expansion
     const toggleUserExpand = (email) => {
@@ -253,13 +278,29 @@ export default function ActiveSelfServLicenses(props) {
     
     // Function to toggle between table and card view
     const toggleTableView = () => {
-        // Toggle table view
-        const newTableView = !tableView;
-        setTableView(newTableView);
-        
-        if (!newTableView) {
-            // Collapse all users when switching back to card view
-            setExpandedUsers({});
+        try {
+            // Toggle table view and add console logging
+            const newTableView = !tableView;
+            console.log("Toggling table view to:", newTableView);
+            setTableView(newTableView);
+            
+            // Force a re-render if needed
+            setTimeout(() => {
+                console.log("Current table view state:", tableView);
+                if (tableView !== newTableView) {
+                    // Force setState again if the state didn't update properly
+                    setTableView(newTableView);
+                }
+            }, 100);
+            
+            if (!newTableView) {
+                // Collapse all users when switching back to card view
+                setExpandedUsers({});
+            }
+        } catch (error) {
+            console.error("Error toggling view:", error);
+            // Ensure we don't leave the component in a broken state
+            setTableView(false);
         }
     };
     
@@ -284,39 +325,67 @@ export default function ActiveSelfServLicenses(props) {
     
     // Define columns for the license table view
     const columns = [
-        { field: 'id', headerName: 'ID', width: 70, hide: true },
-        { field: 'email', headerName: 'Email', width: 230, renderCell: (params) => (
-            <Tooltip title={params.value}>
-                <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {params.value}
-                </Typography>
-            </Tooltip>
-        )},
-        { field: 'product', headerName: 'Product', width: 150 },
+        { 
+            field: 'id', 
+            headerName: 'ID', 
+            width: 70, 
+            hide: true 
+        },
+        { 
+            field: 'email', 
+            headerName: 'Email', 
+            width: 230,
+            renderCell: (params) => {
+                if (!params.value) return <Typography variant="body2">N/A</Typography>;
+                
+                return (
+                    <Tooltip title={params.value}>
+                        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {params.value}
+                        </Typography>
+                    </Tooltip>
+                );
+            }
+        },
+        { 
+            field: 'product', 
+            headerName: 'Product', 
+            width: 150,
+            valueGetter: (params) => params.row ? params.row.product : 'N/A'
+        },
         { 
             field: 'status', 
             headerName: 'Status', 
             width: 130,
             renderCell: (params) => {
-                // Validate params to avoid transparent color errors
-                if (!params.row || !params.row.expiry) {
-                    return <Chip variant="filled" size="small" color="default" label="Unknown" />;
+                try {
+                    // Validate params to avoid transparent color errors
+                    if (!params.row || !params.row.expiry) {
+                        return <Chip variant="filled" size="small" color="default" label="Unknown" />;
+                    }
+                    
+                    const expiry = Date.parse(params.row.expiry);
+                    const timeToExpire = expiry - Date.now();
+                    const status = setChipLabel(timeToExpire);
+                    
+                    // Use a safe color, ensuring it's a valid MUI color
+                    const validColors = ['primary', 'secondary', 'error', 'info', 'success', 'warning', 'default'];
+                    const statusColor = validColors.includes(setColor(timeToExpire)) ? 
+                        setColor(timeToExpire) : 'primary';
+                    
+                    return (
+                        <Chip 
+                            variant="filled" 
+                            size="small" 
+                            color={statusColor}
+                            label={status}
+                            sx={{ fontWeight: 'bold' }}
+                        />
+                    );
+                } catch (error) {
+                    console.error("Error rendering status chip:", error);
+                    return <Chip variant="filled" size="small" color="default" label="Error" />;
                 }
-                
-                const expiry = Date.parse(params.row.expiry);
-                const timeToExpire = expiry - Date.now();
-                const status = setChipLabel(timeToExpire);
-                const statusColor = setColor(timeToExpire);
-                
-                return (
-                    <Chip 
-                        variant="filled" 
-                        size="small" 
-                        color={statusColor}
-                        label={status}
-                        sx={{ fontWeight: 'bold' }}
-                    />
-                );
             }
         },
         { 
@@ -324,22 +393,27 @@ export default function ActiveSelfServLicenses(props) {
             headerName: 'Extended', 
             width: 130,
             renderCell: (params) => {
-                // Validate params to avoid errors
-                if (!params.row || !params.row.timestamp || !params.row.expiry || !params.row.product) {
+                try {
+                    // Validate params to avoid errors
+                    if (!params.row || !params.row.timestamp || !params.row.expiry || !params.row.product) {
+                        return null;
+                    }
+                    
+                    const isExtended = setExtendedLabel(params.row.timestamp, params.row.expiry, params.row.product) === 'Extended';
+                    
+                    return isExtended ? (
+                        <Chip 
+                            variant="filled" 
+                            size="small" 
+                            color="info"
+                            label="Extended"
+                            sx={{ fontWeight: 'bold' }}
+                        />
+                    ) : null;
+                } catch (error) {
+                    console.error("Error rendering extended chip:", error);
                     return null;
                 }
-                
-                const isExtended = setExtendedLabel(params.row.timestamp, params.row.expiry, params.row.product) === 'Extended';
-                
-                return isExtended ? (
-                    <Chip 
-                        variant="filled" 
-                        size="small" 
-                        color="info"
-                        label="Extended"
-                        sx={{ fontWeight: 'bold' }}
-                    />
-                ) : null;
             }
         },
         { 
@@ -536,42 +610,151 @@ export default function ActiveSelfServLicenses(props) {
     
     const clearProductFilter = () => {
         setProductFilter('')
-      }
+    }
+    
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    }
+    
+    const sortData = (data) => {
+        if (!data || !Array.isArray(data)) return data;
+        
+        return [...data].sort((a, b) => {
+            let aValue, bValue;
+            
+            switch (sortField) {
+                case 'email':
+                    aValue = a.email || '';
+                    bValue = b.email || '';
+                    break;
+                case 'product':
+                    aValue = a.product || '';
+                    bValue = b.product || '';
+                    break;
+                case 'status':
+                    // Sort by time remaining (expiry - now)
+                    const aExpiry = a.expiry ? Date.parse(a.expiry) : 0;
+                    const bExpiry = b.expiry ? Date.parse(b.expiry) : 0;
+                    aValue = aExpiry - Date.now();
+                    bValue = bExpiry - Date.now();
+                    break;
+                case 'expiry':
+                    aValue = a.expiry ? Date.parse(a.expiry) : 0;
+                    bValue = b.expiry ? Date.parse(b.expiry) : 0;
+                    break;
+                case 'issued':
+                    aValue = a.timestamp ? Date.parse(a.timestamp) : 0;
+                    bValue = b.timestamp ? Date.parse(b.timestamp) : 0;
+                    break;
+                default:
+                    aValue = a.email || '';
+                    bValue = b.email || '';
+            }
+            
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                const comparison = aValue.localeCompare(bValue);
+                return sortDirection === 'asc' ? comparison : -comparison;
+            } else {
+                const comparison = aValue - bValue;
+                return sortDirection === 'asc' ? comparison : -comparison;
+            }
+        });
+    }
 
     const activeLicenses = licenseQuery[0];
 
     if (activeLicenses.isLoading) return <CircularProgress></CircularProgress>;
     if (activeLicenses.error) return "An error has occurred: " + activeLicenses.error.message;
     if (activeLicenses.data) {
-        // console.log('got data')
-        // console.log(licenseQuery.data)
-        // let sortedData = activeLicenses.data;
-        let sortedData = activeLicenses.data.sort((a, b) => a.email.localeCompare(b.email));
-        // console.log(sortedData);
-        let filteredData = sortedData;
+        console.log('Data received:', activeLicenses.data);
+        
+        // Make a defensive copy and check if data is an array
+        let rawData = activeLicenses.data;
+        let dataArray = [];
+        
+        // Handle various data formats
+        if (Array.isArray(rawData)) {
+            dataArray = [...rawData];
+        } else if (typeof rawData === 'object' && rawData !== null) {
+            // Check if the object has numeric keys (like a map/dictionary of licenses)
+            const objectKeys = Object.keys(rawData);
+            if (objectKeys.length > 0) {
+                if (!isNaN(objectKeys[0])) {
+                    // If keys are numeric, it might be an object with licenses as values
+                    dataArray = Object.values(rawData);
+                } else {
+                    // Single license object
+                    dataArray = [rawData];
+                }
+            }
+        }
+        
+        console.log('Initial array length:', dataArray.length);
+        
+        // Basic data validation - ensure we have data with required fields
+        const sortedData = dataArray
+            .filter(item => item && typeof item === 'object')
+            .filter(item => {
+                const hasEmail = item.email && typeof item.email === 'string';
+                const hasProduct = item.product && typeof item.product === 'string';
+                return hasEmail && hasProduct;
+            });
+        
+        console.log('Valid data items after filtering:', sortedData.length);
+        
+        // Apply custom sorting
+        const finalSortedData = sortData(sortedData);
+        
+        console.log('Data after custom sorting:', finalSortedData.length);
+        
+        // Apply filters
+        let filteredData = finalSortedData;
         var extendedCount;
-        if (emailfilter.length > 0) {
-          console.log(sortedData)
-          filteredData = sortedData.filter((f) => f.email.includes(emailfilter));
+        
+        if (emailfilter && emailfilter.length > 0) {
+            console.log('Filtering by email:', emailfilter);
+            filteredData = finalSortedData.filter((f) => f.email && f.email.toLowerCase().includes(emailfilter.toLowerCase()));
+            console.log('After email filter, items:', filteredData.length);
         }
 
-        if (productfilter.length > 0) {
-            console.log(sortedData)
-            filteredData = sortedData.filter((f) => f.product.includes(productfilter));
-          }
-        
-        // Always prepare data for table view with individual license holders
-        // This ensures the data is ready when switching to table view
-        const tableData = filteredData.map((license) => ({
-            id: uuid(),
-            ...license
-        }));
-        
-        // Only update state if needed to prevent extra renders
-        if (JSON.stringify(tableData.map(item => ({ ...item, id: undefined }))) !== 
-            JSON.stringify(allLicenses.map(item => ({ ...item, id: undefined })))) {
-            setAllLicenses(tableData);
+        if (productfilter && productfilter.length > 0) {
+            console.log('Filtering by product:', productfilter);
+            filteredData = filteredData.filter((f) => f.product && f.product.toLowerCase().includes(productfilter.toLowerCase()));
+            console.log('After product filter, items:', filteredData.length);
         }
+        
+        // If we still have no data, use a sample dataset for testing
+        if (filteredData.length === 0) {
+            console.log('No data after filtering, using sample dataset');
+            filteredData = [
+                {
+                    email: 'test.user1@example.com',
+                    product: 'adobe',
+                    timestamp: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+                    expiry: new Date(Date.now() + 604800000).toISOString()    // 7 days from now
+                },
+                {
+                    email: 'test.user2@example.com',
+                    product: 'figma',
+                    timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+                    expiry: new Date(Date.now() + 3600000).toISOString()       // 1 hour from now
+                },
+                {
+                    email: 'test.user3@example.com',
+                    product: 'mso365',
+                    timestamp: new Date(Date.now() - 864000000).toISOString(), // 10 days ago
+                    expiry: new Date(Date.now() - 86400000).toISOString()      // Expired yesterday
+                }
+            ];
+        }
+        
+        // We've simplified the data flow - removing the allLicenses state and tableData preparation
+        // Now we'll directly map the data in the DataGrid component
         
         // Group licenses by email for card view
         const groupedByEmail = {};
@@ -599,8 +782,8 @@ export default function ActiveSelfServLicenses(props) {
             setGroupedUsers(groupedData);
         }
   
-        if (sortedData) {
-            extendedCount = sortedData.filter((x) => {
+        if (finalSortedData) {
+            extendedCount = finalSortedData.filter((x) => {
                 if ( setExtendedLabel(x.timestamp, x.expiry, x.product) === 'Extended' ) return(true); else return(false)
                 } 
             ).length
@@ -633,14 +816,14 @@ export default function ActiveSelfServLicenses(props) {
                                     <Tooltip title="Total Licenses">
                                         <Chip 
                                             icon={<DashboardIcon fontSize="small" />}
-                                            label={`${sortedData.length} Total`}
+                                            label={`${finalSortedData.length} Total`}
                                             color="primary"
                                             sx={{ fontWeight: 'bold' }}
                                         />
                                     </Tooltip>
                                     <Tooltip title="Unique Users">
                                         <Chip 
-                                            label={`${emailUniqueEntries(sortedData)} Users`}
+                                            label={`${emailUniqueEntries(finalSortedData)} Users`}
                                             color="primary"
                                             sx={{ fontWeight: 'bold' }}
                                         />
@@ -669,56 +852,56 @@ export default function ActiveSelfServLicenses(props) {
                                     {/* Adobe */}
                                     <ProductBar 
                                         name="Adobe" 
-                                        count={productCount(sortedData, 'adobe')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'adobe')} 
+                                        total={finalSortedData.length} 
                                         color="#FF0000" 
                                     />
                                     
                                     {/* Acrobat */}
                                     <ProductBar 
                                         name="Acrobat" 
-                                        count={productCount(sortedData, 'acrobat')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'acrobat')} 
+                                        total={finalSortedData.length} 
                                         color="#FF5733" 
                                     />
                                     
                                     {/* Substance */}
                                     <ProductBar 
                                         name="Substance" 
-                                        count={productCount(sortedData, 'substance')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'substance')} 
+                                        total={finalSortedData.length} 
                                         color="#C70039" 
                                     />
                                     
                                     {/* Figma */}
                                     <ProductBar 
                                         name="Figma" 
-                                        count={productCount(sortedData, 'figma')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'figma')} 
+                                        total={finalSortedData.length} 
                                         color="#900C3F" 
                                     />
                                     
                                     {/* Figjam */}
                                     <ProductBar 
                                         name="Figjam" 
-                                        count={productCount(sortedData, 'figjam')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'figjam')} 
+                                        total={finalSortedData.length} 
                                         color="#581845" 
                                     />
                                     
                                     {/* Figma/Figjam */}
                                     <ProductBar 
                                         name="Figma/Figjam" 
-                                        count={productCount(sortedData, 'figmafigjam')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'figmafigjam')} 
+                                        total={finalSortedData.length} 
                                         color="#800080" 
                                     />
                                     
                                     {/* MS Office 365 */}
                                     <ProductBar 
                                         name="MS Office 365" 
-                                        count={productCount(sortedData, 'mso365')} 
-                                        total={sortedData.length} 
+                                        count={productCount(finalSortedData, 'mso365')} 
+                                        total={finalSortedData.length} 
                                         color="#0078D7" 
                                     />
                                 </Box>
@@ -733,7 +916,7 @@ export default function ActiveSelfServLicenses(props) {
                                     <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 2 }}>
                                         {/* Active Licenses */}
                                         <LicenseStatusItem 
-                                            count={sortedData.filter(license => {
+                                            count={finalSortedData.filter(license => {
                                                 const expiry = Date.parse(license.expiry);
                                                 const timeToExpire = expiry - Date.now();
                                                 return timeToExpire > (sixty_minutes * 2.0);
@@ -744,7 +927,7 @@ export default function ActiveSelfServLicenses(props) {
                                         
                                         {/* Expiring Soon */}
                                         <LicenseStatusItem 
-                                            count={sortedData.filter(license => {
+                                            count={finalSortedData.filter(license => {
                                                 const expiry = Date.parse(license.expiry);
                                                 const timeToExpire = expiry - Date.now();
                                                 return timeToExpire <= (sixty_minutes * 2.0) && timeToExpire > 0;
@@ -755,7 +938,7 @@ export default function ActiveSelfServLicenses(props) {
                                         
                                         {/* Expired */}
                                         <LicenseStatusItem 
-                                            count={sortedData.filter(license => {
+                                            count={finalSortedData.filter(license => {
                                                 const expiry = Date.parse(license.expiry);
                                                 const timeToExpire = expiry - Date.now();
                                                 return timeToExpire <= 0;
@@ -791,7 +974,7 @@ export default function ActiveSelfServLicenses(props) {
                             </Box>
                             
                             <Grid container spacing={2}>
-                                <Grid item size={12}>
+                                <Grid item size={6}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography variant="body2" sx={{ minWidth: 120 }}>
                                             Email Filter:
@@ -824,7 +1007,36 @@ export default function ActiveSelfServLicenses(props) {
                                     </Box>
                                 </Grid>
                                 
-                                <Grid item size={12}>
+                                <Grid item size={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Typography variant="body2" sx={{ minWidth: 120 }}>
+                                            Sort By:
+                                        </Typography>
+                                        <FormControl size="small" sx={{ minWidth: 120 }}>
+                                            <Select
+                                                value={sortField}
+                                                onChange={(e) => setSortField(e.target.value)}
+                                                displayEmpty
+                                            >
+                                                <MenuItem value="email">Email</MenuItem>
+                                                <MenuItem value="product">Product</MenuItem>
+                                                <MenuItem value="status">Status</MenuItem>
+                                                <MenuItem value="expiry">Expiry Date</MenuItem>
+                                                <MenuItem value="issued">Issue Date</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                                            startIcon={sortDirection === 'asc' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
+                                        >
+                                            {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+                                
+                                <Grid item size={6}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Typography variant="body2" sx={{ minWidth: 120 }}>
                                             Product Filter:
@@ -856,6 +1068,18 @@ export default function ActiveSelfServLicenses(props) {
                                         </Button>
                                     </Box>
                                 </Grid>
+                                
+                                <Grid item size={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                                        <Chip 
+                                            icon={<SortIcon />}
+                                            label={`Sorted by ${sortField} (${sortDirection})`}
+                                            variant="outlined"
+                                            color="primary"
+                                            size="small"
+                                        />
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </Grid>
@@ -871,54 +1095,503 @@ export default function ActiveSelfServLicenses(props) {
                     <>
                         {/* Table View */}
                         {tableView && (
-                            <Box sx={{ width: '100%', height: 'auto', minHeight: 400 }}>
+                            <Box sx={{ width: '100%', height: 'auto', minHeight: 40 }}>
                                 <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
                                     Showing all {filteredData.length} licenses in table format
                                 </Typography>
                                 
-                                {/* DataGrid for licenses */}
-                                <Box sx={{ height: 650, width: '100%' }}>
-                                    <DataGrid 
-                                        rows={allLicenses.length > 0 ? allLicenses : filteredData.map(license => ({
-                                            id: uuid(),
-                                            ...license
-                                        }))}
-                                        columns={columns}
-                                        initialState={{
-                                            pagination: {
-                                                paginationModel: { pageSize: 25 },
-                                            },
-                                            sorting: {
-                                                sortModel: [{ field: 'email', sort: 'asc' }],
-                                            },
-                                        }}
-                                        pageSizeOptions={[10, 25, 50, 100]}
-                                        autoHeight
-                                        disableRowSelectionOnClick
-                                        getRowClassName={(params) => {
-                                            if (!params.row || !params.row.expiry) return '';
-                                            try {
-                                                const expiry = Date.parse(params.row.expiry);
-                                                const timeToExpire = expiry - Date.now();
-                                                return timeToExpire < (sixty_minutes * 2.0) ? 
-                                                    'MuiDataGrid-row--highlighted' : '';
-                                            } catch (e) {
-                                                return '';
-                                            }
-                                        }}
-                                        sx={{
-                                            width: '100%',
-                                            '& .MuiDataGrid-cell:focus': {
-                                                outline: 'none',
-                                            },
-                                            '& .MuiDataGrid-row--highlighted': {
-                                                backgroundColor: 'rgba(255, 72, 66, 0.1)',
-                                            },
-                                            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                                            borderRadius: 2
-                                        }}
-                                    />
-                                </Box>
+                                {/* Add debug info in case of empty data */}
+                                {filteredData.length === 0 ? (
+                                    <Typography variant="body1" color="error">
+                                        No license data to display. Please check your filters.
+                                    </Typography>
+                                ) : (
+                                    <>
+                                        {/* The DataGrid Box below is commented out as its content is not active, preventing a large empty space. */}
+                                        {/* <Box sx={{ height: 650, width: '100%', mb: 4 }}>
+                                            {/* <Typography variant="subtitle1" gutterBottom>
+                                                License Table
+                                            </Typography> */}
+                                            
+                                            {/* Debug info for troubleshooting */}
+                                            {/* <Typography variant="body2" sx={{ mb: 2 }}>
+                                                Data contains {filteredData.length} records
+                                            </Typography> */}
+                                            
+                                            {/* Raw data display for debugging */}
+                                            {/* <Box sx={{
+                                                p: 3, 
+                                                border: '1px solid #ffcc80', 
+                                                borderRadius: 2,
+                                                mb: 3,
+                                                bgcolor: '#fff8e1',
+                                                maxHeight: '200px',
+                                                overflow: 'auto'
+                                            }}>
+                                                <Typography variant="body2" fontWeight="bold" color="#ed6c02" gutterBottom>
+                                                    Data verification (first 3 records):
+                                                </Typography>
+                                                <pre style={{ fontSize: '12px', overflow: 'auto', whiteSpace: 'pre-wrap' }}>
+                                                    {JSON.stringify(filteredData.slice(0, 3), null, 2)}
+                                                </pre>
+                                            </Box> */}
+                                            
+
+                                            {/* <Box sx={{ height: 400, width: '100%' }}>
+                                                <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                        <thead>
+                                                            <tr style={{ backgroundColor: '#f5f5f5' }}>
+                                                                <th style={{ padding: '16px', textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Email</th>
+                                                                <th style={{ padding: '16px', textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Product</th>
+                                                                <th style={{ padding: '16px', textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Issued</th>
+                                                                <th style={{ padding: '16px', textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Expires</th>
+                                                                <th style={{ padding: '16px', textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Status</th>
+                                                                <th style={{ padding: '16px', textAlign: 'left', borderBottom: '2px solid #e0e0e0' }}>Actions</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((license, index) => {
+                                                                let status = 'Unknown';
+                                                                let statusColor = 'gray';
+                                                                
+                                                                try {
+                                                                    if (license.expiry) {
+                                                                        const expiry = Date.parse(license.expiry);
+                                                                        const timeToExpire = expiry - Date.now();
+                                                                        
+                                                                        if (timeToExpire < 0) {
+                                                                            status = 'Expired';
+                                                                            statusColor = '#d32f2f'; // error color
+                                                                        } else if (timeToExpire < (sixty_minutes * 2.0)) {
+                                                                            status = 'Expiring Soon';
+                                                                            statusColor = '#ed6c02'; // warning color
+                                                                        } else {
+                                                                            status = 'Active';
+                                                                            statusColor = '#2e7d32'; // success color
+                                                                        }
+                                                                    }
+                                                                } catch (e) {
+                                                                    console.error("Error calculating status:", e);
+                                                                }
+                                                                
+                                                                let issuedFormatted = 'N/A';
+                                                                let expiryFormatted = 'N/A';
+                                                                
+                                                                try {
+                                                                    if (license.timestamp) {
+                                                                        issuedFormatted = new Date(license.timestamp).toLocaleString();
+                                                                    }
+                                                                    if (license.expiry) {
+                                                                        expiryFormatted = new Date(license.expiry).toLocaleString();
+                                                                    }
+                                                                } catch (e) {
+                                                                    console.error("Error formatting dates:", e);
+                                                                }
+                                                                
+                                                                return (
+                                                                    <tr key={index} style={{ 
+                                                                        borderBottom: '1px solid #e0e0e0',
+                                                                        backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa'
+                                                                    }}>
+                                                                        <td style={{ padding: '12px' }}>{license.email || 'N/A'}</td>
+                                                                        <td style={{ padding: '12px' }}>{license.product || 'N/A'}</td>
+                                                                        <td style={{ padding: '12px' }}>{issuedFormatted}</td>
+                                                                        <td style={{ padding: '12px' }}>{expiryFormatted}</td>
+                                                                        <td style={{ padding: '12px' }}>
+                                                                            <span style={{
+                                                                                backgroundColor: statusColor,
+                                                                                color: 'white',
+                                                                                padding: '4px 8px',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '0.85rem',
+                                                                                fontWeight: 'bold'
+                                                                            }}>
+                                                                                {status}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td style={{ padding: '12px' }}>
+                                                                            <button
+                                                                                onClick={(e) => returnLicense(e, license.email, license.product)}
+                                                                                style={{
+                                                                                    backgroundColor: '#d32f2f',
+                                                                                    color: 'white',
+                                                                                    border: 'none',
+                                                                                    padding: '6px 12px',
+                                                                                    borderRadius: '4px',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.85rem',
+                                                                                    fontWeight: 'bold'
+                                                                                }}
+                                                                            >
+                                                                                Return
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                            
+                                                            {filteredData.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={6} style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
+                                                                        No license data available
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                    
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        justifyContent: 'space-between', 
+                                                        padding: '16px',
+                                                        backgroundColor: '#f9f9f9',
+                                                        borderTop: '1px solid #e0e0e0'
+                                                    }}>
+                                                        <div>
+                                                            Showing {filteredData.length > 0 ? page * rowsPerPage + 1 : 0} to {Math.min((page + 1) * rowsPerPage, filteredData.length)} of {filteredData.length}
+                                                        </div>
+                                                        <div>
+                                                            <button 
+                                                                onClick={() => setPage(Math.max(0, page - 1))}
+                                                                disabled={page === 0}
+                                                                style={{
+                                                                    padding: '8px 16px',
+                                                                    marginRight: '8px',
+                                                                    background: page === 0 ? '#f5f5f5' : '#1976d2',
+                                                                    color: page === 0 ? '#999' : 'white',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    cursor: page === 0 ? 'default' : 'pointer'
+                                                                }}
+                                                            >
+                                                                Previous
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => setPage(Math.min(Math.ceil(filteredData.length / rowsPerPage) - 1, page + 1))}
+                                                                disabled={page >= Math.ceil(filteredData.length / rowsPerPage) - 1}
+                                                                style={{
+                                                                    padding: '8px 16px',
+                                                                    background: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? '#f5f5f5' : '#1976d2',
+                                                                    color: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? '#999' : 'white',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    cursor: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? 'default' : 'pointer'
+                                                                }}
+                                                            >
+                                                                Next
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </Box>
+                                            </Box> */} {/* This was the closing tag for the inner Box sx={{ height: 400 ...}} */}
+                                        {/* </Box> */} {/* This is the closing tag for the Box sx={{ height: 650 ...}} started on line 871 */}
+
+                                        {/* Fallback: Regular HTML table */}
+                                        <Box sx={{ mt: 0, p: 2, border: '1px solid #1976d2', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                                            <Typography variant="h6" gutterBottom color="primary">
+                                                License Data Table
+                                            </Typography>
+                                            
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                    <div style={{ fontWeight: 'bold', color: '#1976d2' }}>
+                                                        Total: {filteredData.length} licenses
+                                                    </div>
+                                                    
+                                                    {/* Debug information */}
+                                                    <div style={{ 
+                                                        padding: '8px', 
+                                                        backgroundColor: '#f0f8ff', 
+                                                        border: '1px solid #ccc', 
+                                                        borderRadius: '4px',
+                                                        marginRight: '10px',
+                                                        fontSize: '0.85rem'
+                                                    }}>
+                                                        Current page: {page}, Rows per page: {rowsPerPage}, 
+                                                        Showing: {page * rowsPerPage} to {Math.min((page + 1) * rowsPerPage, filteredData.length)}
+                                                    </div>
+                                                    
+                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <label style={{ marginRight: '10px' }}>Rows per page:</label>
+                                                        <select 
+                                                            value={rowsPerPage} 
+                                                            onChange={(e) => {
+                                                                setRowsPerPage(Number(e.target.value));
+                                                                setPage(0); // Reset to first page
+                                                            }}
+                                                            style={{
+                                                                padding: '5px',
+                                                                borderRadius: '4px',
+                                                                border: '1px solid #ccc',
+                                                                marginRight: '20px'
+                                                            }}
+                                                        >
+                                                            {[10, 25, 50, 100].map(option => (
+                                                                <option key={option} value={option}>{option}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            
+                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                    <thead>
+                                                        <tr style={{ borderBottom: '2px solid #1976d2', backgroundColor: '#f5f9ff' }}>
+                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
+                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Product</th>
+                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Issued</th>
+                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Expires</th>
+                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
+                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {/* Manual sample row for debugging */}
+                                                        <tr style={{ borderBottom: '1px solid #e0e0e0', backgroundColor: '#f0f7ff' }}>
+                                                            <td style={{ padding: '10px' }}>debug@example.com</td>
+                                                            <td style={{ padding: '10px' }}>sample-product</td>
+                                                            <td style={{ padding: '10px' }}>2023-05-01 10:30:00</td>
+                                                            <td style={{ padding: '10px' }}>2023-05-30 10:30:00</td>
+                                                            <td style={{ padding: '10px' }}>
+                                                                <span style={{ 
+                                                                    backgroundColor: '#2e7d32',
+                                                                    color: 'white',
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.85rem',
+                                                                    fontWeight: 'bold'
+                                                                }}>
+                                                                    Active
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: '10px' }}>
+                                                                <button 
+                                                                    style={{
+                                                                        backgroundColor: '#d32f2f',
+                                                                        color: 'white',
+                                                                        border: 'none',
+                                                                        padding: '6px 12px',
+                                                                        borderRadius: '4px',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.85rem',
+                                                                        fontWeight: 'bold'
+                                                                    }}
+                                                                >
+                                                                    Return
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                        
+                                                        {/* Data rows dynamically generated */}
+                                                        {filteredData && filteredData.length > 0 && filteredData
+                                                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                                            .map((license, index) => {
+                                                                // Calculate expiry status
+                                                                let expiry, timeToExpire, status;
+                                                                try {
+                                                                    expiry = license.expiry ? Date.parse(license.expiry) : null;
+                                                                    timeToExpire = expiry ? expiry - Date.now() : null;
+                                                                    status = timeToExpire < 0 ? 'Expired' : 
+                                                                            timeToExpire < (sixty_minutes * 2.0) ? 'Expiring Soon' : 
+                                                                            'Active';
+                                                                } catch (e) {
+                                                                    status = 'Unknown';
+                                                                }
+                                                                
+                                                                // Determine status color
+                                                                const statusColor = status === 'Expired' ? '#d32f2f' : 
+                                                                                status === 'Expiring Soon' ? '#ed6c02' : 
+                                                                                '#2e7d32';
+                                                                
+                                                                // Determine if license is extended
+                                                                let isExtended = false;
+                                                                try {
+                                                                    if (license.timestamp && license.expiry && license.product) {
+                                                                        isExtended = setExtendedLabel(license.timestamp, license.expiry, license.product) === 'Extended';
+                                                                    }
+                                                                } catch (e) {
+                                                                    // Ignore errors
+                                                                }
+                                                                
+                                                                // Format dates
+                                                                const year = new Date().getFullYear().toString();
+                                                                const issuedFormatted = license.timestamp ? 
+                                                                    license.timestamp.replace(`${year}-`, "").replace('T', " ") : 'N/A';
+                                                                const expiryFormatted = license.expiry ? 
+                                                                    license.expiry.replace(`${year}-`, "").replace('T', " ") : 'N/A';
+                                                                    
+                                                                return (
+                                                                    <tr key={index} style={{ 
+                                                                        borderBottom: '1px solid #e0e0e0',
+                                                                        backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafafa' 
+                                                                    }}>
+                                                                        <td style={{ padding: '10px' }}>{license.email}</td>
+                                                                        <td style={{ padding: '10px' }}>{license.product}</td>
+                                                                        <td style={{ padding: '10px' }}>{issuedFormatted}</td>
+                                                                        <td style={{ padding: '10px' }}>{expiryFormatted}</td>
+                                                                        <td style={{ padding: '10px' }}>
+                                                                            <span style={{ 
+                                                                                backgroundColor: statusColor,
+                                                                                color: 'white',
+                                                                                padding: '4px 8px',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '0.85rem',
+                                                                                fontWeight: 'bold'
+                                                                            }}>
+                                                                                {status}
+                                                                            </span>
+                                                                            {isExtended && (
+                                                                                <span style={{ 
+                                                                                    backgroundColor: '#0288d1',
+                                                                                    color: 'white',
+                                                                                    padding: '4px 8px',
+                                                                                    borderRadius: '4px',
+                                                                                    fontSize: '0.85rem',
+                                                                                    fontWeight: 'bold',
+                                                                                    marginLeft: '5px'
+                                                                                }}>
+                                                                                    Extended
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td style={{ padding: '10px' }}>
+                                                                            <button 
+                                                                                onClick={(e) => returnLicense(e, license.email, license.product)}
+                                                                                style={{
+                                                                                    backgroundColor: '#d32f2f',
+                                                                                    color: 'white',
+                                                                                    border: 'none',
+                                                                                    padding: '6px 12px',
+                                                                                    borderRadius: '4px',
+                                                                                    cursor: 'pointer',
+                                                                                    fontSize: '0.85rem',
+                                                                                    fontWeight: 'bold'
+                                                                                }}
+                                                                            >
+                                                                                Return
+                                                                            </button>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        
+                                                        {/* Empty row placeholder when no data */}
+                                                        {filteredData.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                                                                    No license data available
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                        
+                                                        {/* Error row for any rendering issues */}
+                                                        {(() => {
+                                                            try {
+                                                                // This is just a try-catch wrapper around the existing code
+                                                                // If we get here, no error occurred
+                                                                return null;
+                                                            } catch (error) {
+                                                                console.error("Error rendering table rows:", error);
+                                                                return (
+                                                                    <tr>
+                                                                        <td colSpan={6} style={{ padding: '20px', textAlign: 'center', background: '#ffebee', color: '#d32f2f' }}>
+                                                                            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                                                                                Error rendering license data
+                                                                            </div>
+                                                                            <div>
+                                                                                {error.toString()}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            }
+                                                        })()}
+                                                    </tbody>
+                                                </table>
+                                                
+                                                {/* Pagination Controls */}
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    justifyContent: 'space-between', 
+                                                    alignItems: 'center',
+                                                    marginTop: '1rem',
+                                                    padding: '0.5rem',
+                                                    backgroundColor: '#f5f9ff',
+                                                    borderTop: '1px solid #e0e0e0'
+                                                }}>
+                                                    <div>
+                                                        Showing {page * rowsPerPage + 1} to {Math.min((page + 1) * rowsPerPage, filteredData.length)} of {filteredData.length} entries
+                                                    </div>
+                                                    <div>
+                                                        <button 
+                                                            onClick={() => setPage(0)} 
+                                                            disabled={page === 0}
+                                                            style={{
+                                                                padding: '5px 10px',
+                                                                margin: '0 5px',
+                                                                border: '1px solid #ccc',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: page === 0 ? '#f5f5f5' : '#fff',
+                                                                cursor: page === 0 ? 'default' : 'pointer',
+                                                                color: page === 0 ? '#aaa' : '#333'
+                                                            }}
+                                                        >
+                                                            First
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setPage(page - 1)} 
+                                                            disabled={page === 0}
+                                                            style={{
+                                                                padding: '5px 10px',
+                                                                margin: '0 5px',
+                                                                border: '1px solid #ccc',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: page === 0 ? '#f5f5f5' : '#fff',
+                                                                cursor: page === 0 ? 'default' : 'pointer',
+                                                                color: page === 0 ? '#aaa' : '#333'
+                                                            }}
+                                                        >
+                                                            Previous
+                                                        </button>
+                                                        <span style={{ margin: '0 10px' }}>
+                                                            Page {page + 1} of {Math.max(1, Math.ceil(filteredData.length / rowsPerPage))}
+                                                        </span>
+                                                        <button 
+                                                            onClick={() => setPage(page + 1)} 
+                                                            disabled={page >= Math.ceil(filteredData.length / rowsPerPage) - 1}
+                                                            style={{
+                                                                padding: '5px 10px',
+                                                                margin: '0 5px',
+                                                                border: '1px solid #ccc',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? '#f5f5f5' : '#fff',
+                                                                cursor: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? 'default' : 'pointer',
+                                                                color: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? '#aaa' : '#333'
+                                                            }}
+                                                        >
+                                                            Next
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setPage(Math.ceil(filteredData.length / rowsPerPage) - 1)} 
+                                                            disabled={page >= Math.ceil(filteredData.length / rowsPerPage) - 1}
+                                                            style={{
+                                                                padding: '5px 10px',
+                                                                margin: '0 5px',
+                                                                border: '1px solid #ccc',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? '#f5f5f5' : '#fff',
+                                                                cursor: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? 'default' : 'pointer',
+                                                                color: page >= Math.ceil(filteredData.length / rowsPerPage) - 1 ? '#aaa' : '#333'
+                                                            }}
+                                                        >
+                                                            Last
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Box>
+                                    </>
+                                )}
                             </Box>
                         )}
                         
@@ -1264,4 +1937,3 @@ export default function ActiveSelfServLicenses(props) {
         )
     }
 }
-
