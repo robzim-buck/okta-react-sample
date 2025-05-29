@@ -91,6 +91,7 @@ export default function GrantSelfServeLicenses(props) {
       method: 'POST',
       mode: 'cors',
       headers: {
+        'Accept': 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
         'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
       }
@@ -118,7 +119,10 @@ export default function GrantSelfServeLicenses(props) {
             fetch(`${endpoint}/buckokta/category/att/comparison/match?_category=users`,
               {
               method: 'GET',
+              mode: 'cors',
               headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
                 'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
               }
             }).then((res) => res.json()),

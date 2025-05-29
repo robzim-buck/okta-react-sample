@@ -1,10 +1,13 @@
 import { 
-  Chip, Typography, Divider, Box, Container,
-  Grid, Card, CardContent, CardHeader, Button,
-  Accordion, AccordionSummary, AccordionDetails
+  Chip, Typography, Box, Container, Grid, Alert,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, IconButton, Collapse, Tooltip, Card
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import uuid from 'react-uuid';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import BusinessIcon from '@mui/icons-material/Business';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import UpdateIcon from '@mui/icons-material/Update';
 import { useState } from 'react';
 import { useQueries } from "@tanstack/react-query";
 import CircularProgress from '@mui/material/CircularProgress';
@@ -24,15 +27,22 @@ export default function HammerspaceSites(props) {
         queries: [
           {
             queryKey: ["hammerspaceSites"],
-            queryFn: () =>
-            fetch("https://laxcoresrv.buck.local:8000/hammerspace?item=sites",
-                {
-                methood: "GET",
-                headers: {"x-token": "a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo",
+            queryFn: async () => {
+                const response = await fetch("https://laxcoresrv.buck.local:8000/hammerspace?item=sites", {
+                    method: "GET",
+                    headers: {
+                        "x-token": "a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo",
                         "Content-type": "application/json"
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch sites: ${response.statusText}`);
                 }
-              },
-            ).then((res) => res.json()),
+                return response.json();
+            },
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            refetchOnWindowFocus: false,
+            retry: 2
         },
         ]
     });
@@ -47,10 +57,12 @@ export default function HammerspaceSites(props) {
     
     if (hammerspaceSites.error) {
         return (
-            <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="h6" color="error" gutterBottom>An error has occurred</Typography>
-                <Typography color="text.secondary">{hammerspaceSites.error.message}</Typography>
-            </Box>
+            <Container maxWidth="lg" sx={{ py: 4 }}>
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>Failed to load Hammerspace sites</Typography>
+                    <Typography variant="body2">{hammerspaceSites.error.message}</Typography>
+                </Alert>
+            </Container>
         );
     }
     
@@ -64,6 +76,17 @@ export default function HammerspaceSites(props) {
                 </Box>
             );
         }
+
+        // Calculate statistics
+        const recentSites = sortedData.filter(site => {
+            const daysSinceModification = Math.floor((Date.now() - new Date(site.modified)) / (1000 * 60 * 60 * 24));
+            return daysSinceModification < 7;
+        });
+        
+        const siteTypes = [...new Set(sortedData.map(site => site.type).filter(Boolean))];
+        const averageAge = Math.floor(sortedData.reduce((sum, site) => {
+            return sum + Math.floor((Date.now() - new Date(site.created)) / (1000 * 60 * 60 * 24));
+        }, 0) / sortedData.length);
 
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -79,188 +102,254 @@ export default function HammerspaceSites(props) {
                     />
                 </Box>
 
-                <Grid container spacing={3}>
-                    {sortedData.map((site) => {
-                        // Calculate time since creation and modification
-                        const createdDate = new Date(site.created);
-                        const modifiedDate = new Date(site.modified);
-                        const daysSinceCreation = Math.floor((Date.now() - createdDate) / (1000 * 60 * 60 * 24));
-                        const daysSinceModification = Math.floor((Date.now() - modifiedDate) / (1000 * 60 * 60 * 24));
-                        
-                        // Determine status color
-                        const getStatusColor = () => {
-                            // Add logic to determine status based on site properties
-                            // For this example, we'll just use a default color
-                            return '#2196f3'; // blue
-                        };
-                        
-                        return (
-                            <Grid item xs={12} key={site.uoid?.uuid || uuid()}>
-                                <Card 
-                                    variant="outlined" 
-                                    sx={{ 
-                                        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                                        transition: 'all 0.2s ease-in-out',
-                                        borderLeft: `4px solid ${getStatusColor()}`,
-                                        '&:hover': {
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                                            transform: 'translateY(-2px)'
-                                        }
-                                    }}
-                                >
-                                    <CardContent sx={{ p: 0 }}>
-                                        <Accordion 
-                                            expanded={expanded[site.name] || false}
-                                            onChange={() => handleToggle(site.name)}
-                                            sx={{ boxShadow: 'none' }}
+                {/* Summary Statistics */}
+                <Grid container spacing={2} sx={{ mb: 4 }}>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {sortedData.length}
+                            </Typography>
+                            <Typography variant="body2">
+                                Total Sites
+                            </Typography>
+                        </Card>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {recentSites.length}
+                            </Typography>
+                            <Typography variant="body2">
+                                Recently Updated
+                            </Typography>
+                        </Card>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light', color: 'info.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {siteTypes.length}
+                            </Typography>
+                            <Typography variant="body2">
+                                Site Types
+                            </Typography>
+                        </Card>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'secondary.light', color: 'secondary.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {averageAge}
+                            </Typography>
+                            <Typography variant="body2">
+                                Avg Age (days)
+                            </Typography>
+                        </Card>
+                    </Grid>
+                </Grid>
+
+                <TableContainer component={Paper} sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                    <Table sx={{ minWidth: 650 }} size="small">
+                        <TableHead>
+                            <TableRow sx={{ bgcolor: 'primary.main' }}>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold', width: '40px' }}>
+                                    {/* Expand column */}
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <BusinessIcon fontSize="small" />
+                                        Name
+                                    </Box>
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    Internal ID
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    Management Address
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <CalendarTodayIcon fontSize="small" />
+                                        Created
+                                    </Box>
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <UpdateIcon fontSize="small" />
+                                        Modified
+                                    </Box>
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {sortedData.map((site) => {
+                                // Calculate time since creation and modification
+                                const createdDate = new Date(site.created);
+                                const modifiedDate = new Date(site.modified);
+                                const daysSinceCreation = Math.floor((Date.now() - createdDate) / (1000 * 60 * 60 * 24));
+                                const daysSinceModification = Math.floor((Date.now() - modifiedDate) / (1000 * 60 * 60 * 24));
+                                const siteKey = site.name || site.uoid?.uuid || site.internalId;
+                                const isRecentlyUpdated = daysSinceModification < 7;
+                                
+                                return (
+                                    <>
+                                        <TableRow 
+                                            key={siteKey}
+                                            sx={{ 
+                                                '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
+                                                '&:hover': { bgcolor: 'action.selected' },
+                                                borderLeft: isRecentlyUpdated ? '4px solid #4caf50' : '4px solid #2196f3',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={() => handleToggle(siteKey)}
                                         >
-                                            <AccordionSummary 
-                                                expandIcon={
-                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                        <Button 
-                                                            size="small" 
-                                                            variant="text" 
-                                                            endIcon={<ExpandMoreIcon />}
-                                                            sx={{ 
-                                                                ml: 1,
-                                                                minWidth: 100,
-                                                                transition: 'all 0.2s ease'
-                                                            }}
-                                                        >
-                                                            {expanded[site.name] ? 'Hide Details' : 'Show Details'}
-                                                        </Button>
-                                                    </Box>
-                                                }
-                                                sx={{ px: 3, py: 2 }}
-                                            >
-                                                <Grid container spacing={2} alignItems="center">
-                                                    <Grid item xs={12} md={6}>
-                                                        <Typography variant='h6'>
-                                                            {site.name}
+                                            <TableCell>
+                                                <IconButton size="small">
+                                                    {expanded[siteKey] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                                </IconButton>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                    {site.name}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip 
+                                                    variant="outlined" 
+                                                    color="secondary" 
+                                                    size="small"
+                                                    label={site.internalId || 'N/A'} 
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                    {site.mgmtAddress || 'N/A'}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Tooltip title={createdDate.toLocaleString()}>
+                                                    <Box>
+                                                        <Typography variant="body2">
+                                                            {createdDate.toLocaleDateString()}
                                                         </Typography>
-                                                    </Grid>
-                                                    <Grid item xs={12} md={6}>
-                                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {daysSinceCreation === 0 ? 'Today' : 
+                                                             daysSinceCreation === 1 ? 'Yesterday' : 
+                                                             `${daysSinceCreation} days ago`}
+                                                        </Typography>
+                                                    </Box>
+                                                </Tooltip>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Tooltip title={modifiedDate.toLocaleString()}>
+                                                    <Box>
+                                                        <Typography variant="body2">
+                                                            {modifiedDate.toLocaleDateString()}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {daysSinceModification === 0 ? 'Today' : 
+                                                             daysSinceModification === 1 ? 'Yesterday' : 
+                                                             `${daysSinceModification} days ago`}
+                                                        </Typography>
+                                                        {isRecentlyUpdated && (
                                                             <Chip 
-                                                                variant="outlined" 
-                                                                color="info" 
-                                                                size="small"
-                                                                label={`ID: ${site.internalId}`} 
-                                                            />
-                                                            <Chip 
-                                                                variant="outlined" 
+                                                                variant="filled" 
                                                                 color="success" 
                                                                 size="small"
-                                                                label={daysSinceModification === 0 ? 'Updated today' : 
-                                                                    daysSinceModification === 1 ? 'Updated yesterday' : 
-                                                                    `Updated ${daysSinceModification} days ago`} 
+                                                                label="Recent" 
+                                                                sx={{ ml: 1 }}
                                                             />
-                                                        </Box>
-                                                    </Grid>
-                                                </Grid>
-                                            </AccordionSummary>
-                                            
-                                            <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
-                                                <Divider sx={{ mb: 2 }} />
-                                                <Grid container spacing={2}>
-                                                    <Grid item xs={12} sm={6} md={4}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Management Address
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="filled" 
-                                                                color="primary" 
-                                                                size="small"
-                                                                label={site.mgmtAddress || 'N/A'} 
-                                                            />
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    <Grid item xs={12} sm={6} md={4}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Data Address
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="filled" 
-                                                                color="primary" 
-                                                                size="small"
-                                                                label={site.dataAddress || 'N/A'} 
-                                                            />
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    <Grid item xs={12} sm={6} md={4}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Internal ID
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="secondary" 
-                                                                size="small"
-                                                                label={site.internalId || 'N/A'} 
-                                                            />
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    <Grid item xs={12} sm={6}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Created
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="info" 
-                                                                size="small"
-                                                                label={createdDate.toLocaleDateString()} 
-                                                            />
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                {daysSinceCreation} days ago
-                                                            </Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    <Grid item xs={12} sm={6}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Last Modified
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="info" 
-                                                                size="small"
-                                                                label={modifiedDate.toLocaleDateString()} 
-                                                            />
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                {daysSinceModification} days ago
-                                                            </Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    {site.type && (
-                                                        <Grid item xs={12} sm={6}>
-                                                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                                Type
-                                                            </Typography>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="secondary" 
-                                                                size="small"
-                                                                label={site.type} 
-                                                            />
+                                                        )}
+                                                    </Box>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                        
+                                        {/* Collapsible Details Row */}
+                                        <TableRow>
+                                            <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+                                                <Collapse in={expanded[siteKey]} timeout="auto" unmountOnExit>
+                                                    <Box sx={{ margin: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                                        <Grid container spacing={3}>
+                                                            <Grid item xs={12} md={6}>
+                                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                    Data Address
+                                                                </Typography>
+                                                                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                                    {site.dataAddress || 'N/A'}
+                                                                </Typography>
+                                                            </Grid>
+                                                            
+                                                            <Grid item xs={12} md={6}>
+                                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                    Site Type
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    {site.type || 'N/A'}
+                                                                </Typography>
+                                                            </Grid>
+
+                                                            {site.uoid && (
+                                                                <Grid item xs={12} md={6}>
+                                                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                        UUID
+                                                                    </Typography>
+                                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                                        {site.uoid.uuid}
+                                                                    </Typography>
+                                                                </Grid>
+                                                            )}
+                                                            
+                                                            <Grid item xs={12} md={6}>
+                                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                    Timestamps
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    Created: {createdDate.toLocaleString()}
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    Modified: {modifiedDate.toLocaleString()}
+                                                                </Typography>
+                                                            </Grid>
+
+                                                            {/* Raw Data */}
+                                                            {Object.keys(site).length > 6 && (
+                                                                <Grid item xs={12}>
+                                                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                        Raw Data
+                                                                    </Typography>
+                                                                    <Box sx={{ 
+                                                                        p: 1, 
+                                                                        bgcolor: 'white', 
+                                                                        borderRadius: 1, 
+                                                                        maxHeight: 200, 
+                                                                        overflow: 'auto',
+                                                                        border: '1px solid',
+                                                                        borderColor: 'grey.300'
+                                                                    }}>
+                                                                        <pre style={{ 
+                                                                            margin: 0, 
+                                                                            fontSize: '0.75rem', 
+                                                                            whiteSpace: 'pre-wrap',
+                                                                            fontFamily: 'monospace'
+                                                                        }}>
+                                                                            {JSON.stringify(site, null, 2)}
+                                                                        </pre>
+                                                                    </Box>
+                                                                </Grid>
+                                                            )}
                                                         </Grid>
-                                                    )}
-                                                </Grid>
-                                            </AccordionDetails>
-                                        </Accordion>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        );
-                    })}
-                </Grid>
+                                                    </Box>
+                                                </Collapse>
+                                            </TableCell>
+                                        </TableRow>
+                                    </>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
             </Container>
         );
     }

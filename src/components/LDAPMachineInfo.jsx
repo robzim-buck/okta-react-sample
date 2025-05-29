@@ -22,14 +22,16 @@ export default function LDAPMachineInfo(props) {
           {
             queryKey: ["ldap_machine_info"],
             queryFn: () =>
-            fetch("https://laxcoresrv.buck.local:8000/buckldap_machineinfo").then((res) => res.json()),
+            fetch("https://laxcoresrv.buck.local:8000/buckldap_machineinfo", {
+              headers: { 'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo' }
+            }).then((res) => res.json()),
         },
         ]
     });
       if (ldap_machine_info.isLoading) return <CircularProgress></CircularProgress>;
       if (ldap_machine_info.error) return "An error has occurred: " + ldap_machine_info.error.message;
       if (ldap_machine_info.data) {
-        // console.log(ldap_machine_info.data)
+        console.log(ldap_machine_info.data)
         return (
             <>
             <Typography variant='h3'>{props.name}</Typography>

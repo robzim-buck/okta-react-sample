@@ -6,10 +6,13 @@
 - In MUI grid components, never use the xs prop. Use the size prop instead.
 - Do not use the md prop in grid components. It has been deprecated and can be safely removed from project components.
 - When fetching data, always validate the API calls by checking the API endpoint described with openapi.json in https://laxcoresrv.buck.local:8000/openapi.json
-- If an API call is 'protected' use this header { 'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo' }
-- Always check imports
-- use @tanstack/react-query to fetch src/components/OktaUsers.jsx
+- If an API call is 'protected' use this header { 'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo' } when fetching data
+- avoid using axios to fetch data
 - For deployment, use npm run build and the ./copy_to_lax.sh script
 - Never create helper apps like those defined in srv/hooks/useApi.js.  Always fix or modify the Component or route requested by the user.
 - Use a Grid layout with copmonents from the @mui/material library where possible.
 - In Grid components, never use the sm, med, lg tags. They are deprecated. Always use the size tag instead.
+- Always check that a component used is imported in the file that it is referenced from.
+- Always check api endpoints to see if they require the x-token header. If they do, use the protected api method to fetch data
+- The api endpoint has cors set up properly. Always double-check cors errors to see if they are another type of error.
+- Always add newly created components to the NavBar

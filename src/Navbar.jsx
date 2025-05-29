@@ -34,6 +34,7 @@ import {
   ContactMail as ContactMailIcon,
   Badge as BadgeIcon,
   Groups as GroupsIcon,
+  GroupWork as GroupWorkIcon,
   Computer as ComputerIcon,
   List as ListIcon,
   Add as AddIcon,
@@ -46,7 +47,11 @@ import {
   Flag as FlagIcon, // Safe option that definitely exists
   Share as ShareIcon,
   Description as DescriptionIcon,
+  Folder as FolderIcon,
   Assignment as AssignmentIcon,
+  PlaylistAddCheck as PlaylistAddCheckIcon,
+  HealthAndSafety as HealthAndSafetyIcon,
+  Dashboard as DashboardIcon,
   ShoppingCart as ShoppingCartIcon,
   Wifi as WifiIcon,
   BarChart as BarChartIcon,
@@ -54,8 +59,15 @@ import {
   Terminal as TerminalIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
-  Login as LoginIcon
+  Login as LoginIcon,
+  Security as SecurityIcon,
+  FindInPage as FindInPageIcon,
+  Archive as ArchiveIcon
 } from '@mui/icons-material';
+
+// Email lists from Routes.jsx
+const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co";
+const ITEmails = "harry.youngjones@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co";
 
 const Navbar = () => {
   const { authState, oktaAuth } = useOktaAuth();
@@ -74,6 +86,15 @@ const Navbar = () => {
       ...prev,
       [section]: !prev[section]
     }));
+  };
+
+  // Function to check if user has access to a route based on email restrictions
+  const hasAccess = (emailRestriction) => {
+    if (!emailRestriction) return true; // No email restriction means everyone has access
+    if (!authState?.idToken?.claims?.email) return false; // No user email means no access
+    
+    const emailList = emailRestriction.split(',');
+    return emailList.includes(authState.idToken.claims.email);
   };
 
   const login = async () => oktaAuth.signInWithRedirect();
@@ -113,7 +134,7 @@ const Navbar = () => {
               </ListItemIcon>
               <ListItemText
                 primary="User Management"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+                slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
               />
               {collapsed.userManagement ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </ListItemButton>
@@ -122,50 +143,54 @@ const Navbar = () => {
                 {/* Alphabetically sorted user management items */}
                 <ListItemButton component={Link} to="/adobegroups" id="adobe-groups-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><GroupsIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Adobe Groups" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Adobe Groups" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/adobeusers" id="adobe-users-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><BadgeIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Adobe Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Adobe Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/docusignusers" id="docusign-users-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><AssignmentIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Docusign Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Docusign Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/googleusers" id="google-users-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Google Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Google Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/ldapusers" id="ldap-users-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><ContactMailIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="LDAP Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="LDAP Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/oktagroups" id="okta-groups-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><PeopleIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Okta Groups" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Okta Groups" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
-                <ListItemButton component={Link} to="/oktalocations" id="okta-locations-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
-                  <ListItemIcon><LocationOnIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Okta Locations" primaryTypographyProps={{ fontSize: '0.875rem' }} />
-                </ListItemButton>
+                {hasAccess(allowedEmails) && (
+                  <ListItemButton component={Link} to="/oktalocations" id="okta-locations-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                    <ListItemIcon><LocationOnIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Okta Locations" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                  </ListItemButton>
+                )}
                 <ListItemButton component={Link} to="/oktausers" id="okta-users-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Okta Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Okta Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/parsecusers" id="parsecusers-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><ComputerIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Parsec Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Parsec Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/zoomusers" id="zoom-users-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Zoom Users" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Zoom Users" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
 
                 {/* Keep Add Okta User at the end, after all the display items */}
-                <ListItemButton component={Link} to="/onboardnewuser" id="onboard-user-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
-                  <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="OnBoard New User" primaryTypographyProps={{ fontSize: '0.875rem' }} />
-                </ListItemButton>
+                {hasAccess(ITEmails) && (
+                  <ListItemButton component={Link} to="/onboardnewuser" id="onboard-user-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                    <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="OnBoard New User" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                  </ListItemButton>
+                )}
               </List>
             </Collapse>
 
@@ -184,7 +209,7 @@ const Navbar = () => {
               </ListItemIcon>
               <ListItemText
                 primary="License Management"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+                slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
               />
               {collapsed.licenseManagement ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </ListItemButton>
@@ -192,19 +217,21 @@ const Navbar = () => {
               <List component="div" disablePadding>
                 <ListItemButton component={Link} to="/activeselfservelicenses" id="active-licenses-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><ListIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Active Self Serve Licenses" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Active Self Serve Licenses" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
-                <ListItemButton component={Link} to="/grantselfservelicenses" id="grant-licenses-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
-                  <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Grant Licenses" primaryTypographyProps={{ fontSize: '0.875rem' }} />
-                </ListItemButton>
+                {hasAccess(ITEmails) && (
+                  <ListItemButton component={Link} to="/grantselfservelicenses" id="grant-licenses-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                    <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Grant Licenses" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                  </ListItemButton>
+                )}
                 <ListItemButton component={Link} to="/returnselfservelicenses" id="return-licenses-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><RemoveIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Return Licenses" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Return Licenses" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/rlmlicenseinfo" id="rlm-license-info-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="RLM License Info" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="RLM License Info" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
               </List>
             </Collapse>
@@ -224,7 +251,7 @@ const Navbar = () => {
               </ListItemIcon>
               <ListItemText
                 primary="Infrastructure"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+                slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
               />
               {collapsed.infrastructure ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </ListItemButton>
@@ -232,23 +259,23 @@ const Navbar = () => {
               <List component="div" disablePadding>
                 <ListItemButton component={Link} to="/vmwarehosts" id="vmwarehosts-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><ServerIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="VMWare Hosts" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="VMWare Hosts" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/jamfmachineinfo" id="jamfmachineinfo-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><AppleIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="JAMF Machine Info" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="JAMF Machine Info" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/ldapmachineinfo" id="ldapmachineinfo-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><LaptopIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="LDAP Machine Info" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="LDAP Machine Info" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/compositemachineinfo" id="compositemachineinfo-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><AccountTreeIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Composite Machine Info" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Composite Machine Info" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/physicaldrives" id="physicaldrives-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><StorageIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Physical Drives" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Physical Drives" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
               </List>
             </Collapse>
@@ -268,7 +295,7 @@ const Navbar = () => {
               </ListItemIcon>
               <ListItemText
                 primary="Storage"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+                slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
               />
               {collapsed.storage ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </ListItemButton>
@@ -276,50 +303,78 @@ const Navbar = () => {
               <List component="div" disablePadding>
                 <ListItemButton component={Link} to="/hammerspaceobjectives" id="hammerspace-objectives-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><FlagIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Hammerspace Objectives" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Hammerspace Objectives" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/hammerspaceprojects" id="hammerspace-projects-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Hammerspace Projects" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/hammerspaceshares" id="hammerspace-shares-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><ShareIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Hammerspace Shares" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Hammerspace Shares" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/hammerspacesites" id="hammerspace-sites-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><LocationOnIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Hammerspace Sites" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Hammerspace Sites" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/hammerspacetasks" id="hammerspace-tasks-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><PlaylistAddCheckIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Hammerspace Tasks" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/hammerspacesystemhealth" id="hammerspace-system-health-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><HealthAndSafetyIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Hammerspace System Health" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/hammerspacedataportals" id="hammerspace-data-portals-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><DashboardIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Hammerspace Data Portals" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/hammerspacesysteminfo" id="hammerspace-system-info-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><ComputerIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Hammerspace System Info" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/hammerspacevolumegroups" id="hammerspace-volume-groups-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><GroupWorkIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Hammerspace Volume Groups" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
               </List>
             </Collapse>
 
             {/* Finance */}
-            <ListItemButton
-              onClick={() => toggleCollapse('finance')}
-              sx={{
-                py: 0.5,
-                minHeight: 36,
-                fontSize: '0.875rem',
-                '& .MuiListItemIcon-root': { minWidth: 32 }
-              }}
-            >
-              <ListItemIcon>
-                <DescriptionIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary="Finance"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
-              />
-              {collapsed.finance ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            </ListItemButton>
-            <Collapse in={!collapsed.finance} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                <ListItemButton component={Link} to="/invoices" id="invoices-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
-                  <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Invoices" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+            {hasAccess(allowedEmails) && (
+              <>
+                <ListItemButton
+                  onClick={() => toggleCollapse('finance')}
+                  sx={{
+                    py: 0.5,
+                    minHeight: 36,
+                    fontSize: '0.875rem',
+                    '& .MuiListItemIcon-root': { minWidth: 32 }
+                  }}
+                >
+                  <ListItemIcon>
+                    <DescriptionIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary="Finance"
+                    slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
+                  />
+                  {collapsed.finance ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                 </ListItemButton>
-                <ListItemButton component={Link} to="/salesorders" id="salesorders-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
-                  <ListItemIcon><ShoppingCartIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Sales Orders" primaryTypographyProps={{ fontSize: '0.875rem' }} />
-                </ListItemButton>
-              </List>
-            </Collapse>
+                <Collapse in={!collapsed.finance} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    <ListItemButton component={Link} to="/invoices" id="invoices-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                      <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Invoices" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                    </ListItemButton>
+                    <ListItemButton component={Link} to="/salesorders" id="salesorders-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                      <ListItemIcon><ShoppingCartIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Sales Orders" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                    </ListItemButton>
+                  </List>
+                </Collapse>
+              </>
+            )}
 
             {/* Monitoring & Tools */}
             <ListItemButton
@@ -336,7 +391,7 @@ const Navbar = () => {
               </ListItemIcon>
               <ListItemText
                 primary="Monitoring & Tools"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+                slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
               />
               {collapsed.monitoring ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </ListItemButton>
@@ -344,19 +399,31 @@ const Navbar = () => {
               <List component="div" disablePadding>
                 <ListItemButton component={Link} to="/saltping" id="salt-ping-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><WifiIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Salt Ping" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Salt Ping" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
-                <ListItemButton component={Link} to="/parsecleoreport" id="parsecleoreport-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                {/* <ListItemButton component={Link} to="/parsecleoreport" id="parsecleoreport-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
                   <ListItemText primary="Parsec Leo Report" primaryTypographyProps={{ fontSize: '0.875rem' }} />
-                </ListItemButton>
+                </ListItemButton> */}
                 <ListItemButton component={Link} to="/zendesktickets" id="zendesktickets-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><TicketIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Zendesk Tickets" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Zendesk Tickets" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/zendeskarchivetickets" id="zendesk-archive-tickets-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><ArchiveIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Zendesk Archive Tickets" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton component={Link} to="/apilogs" id="logs-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><TerminalIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Logs" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Logs" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/rapid7jobs" id="rapid7-jobs-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><SecurityIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Rapid7 Jobs" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                <ListItemButton component={Link} to="/rapid7investigations" id="rapid7-investigations-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><FindInPageIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Rapid7 Investigations" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
               </List>
             </Collapse>
@@ -376,7 +443,7 @@ const Navbar = () => {
               </ListItemIcon>
               <ListItemText
                 primary="Account"
-                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+                slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
               />
               {collapsed.account ? <ChevronRightIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
             </ListItemButton>
@@ -384,11 +451,11 @@ const Navbar = () => {
               <List component="div" disablePadding>
                 <ListItemButton component={Link} to="/profile" id="profile-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><AccountCircleIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Profile" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Profile" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
                 <ListItemButton onClick={logout} id="logout-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
-                  <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  <ListItemText primary="Logout" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
               </List>
             </Collapse>
@@ -407,7 +474,7 @@ const Navbar = () => {
             <ListItemIcon><LoginIcon fontSize="small" /></ListItemIcon>
             <ListItemText
               primary="Login"
-              primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }}
+              slotProps={{ primary: { fontSize: '0.875rem', fontWeight: 'medium' } }}
             />
           </ListItemButton>
         )}

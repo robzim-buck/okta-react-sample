@@ -7,6 +7,7 @@ import {
   Button, Avatar
 } from '@mui/material';
 import { useQuery } from "@tanstack/react-query";
+import { useApiGet, useProtectedApiGet } from '../hooks/useApi';
 import {
   Search as SearchIcon,
   ClearAll as ClearAllIcon,
@@ -76,7 +77,13 @@ const CompositeMachineInfo = () => {
     queryKey: ['parsecinfo'],
     queryFn: async () => {
       try {
-        const res = await fetch("https://laxcoresrv.buck.local:8000/parsecreport");
+        const res = await fetch("https://laxcoresrv.buck.local:8000/parsecreport", {
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
         if (!res.ok) {
           throw new Error(`HTTP error! Status: ${res.status}`);
         }
@@ -96,11 +103,13 @@ const CompositeMachineInfo = () => {
     queryFn: async () => {
       try {
         const res = await fetch("https://laxcoresrv.buck.local:8000/mongo/jamf_computers_from_mongo?count=999", {
+          mode: 'cors',
           headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
             'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
           }
-        },
-        );
+        });
         if (!res.ok) {
           throw new Error(`HTTP error! Status: ${res.status}`);
         }
@@ -120,7 +129,10 @@ const CompositeMachineInfo = () => {
     queryFn: async () => {
       try {
         const res = await fetch('https://laxcoresrv.buck.local:8000/buckldap_machineinfo', {
+          mode: 'cors',
           headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
             'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
           }
         });
@@ -138,30 +150,12 @@ const CompositeMachineInfo = () => {
     retryDelay: 1000
   });
 
-  const leoAssignments = useQuery({
-    queryKey: ['leoassignments'],
-    queryFn: async () => {
-      try {
-        const res = await fetch("https://laxcoresrv.buck.local:8000/leoassignments");
-        if (!res.ok) {
-          throw new Error(`HTTP error! Status: ${res.status}`);
-        }
-        return res.json();
-      } catch (error) {
-        console.error("Error fetching Leo assignments:", error);
-        throw error;
-      }
-    },
-    staleTime: Infinity,
-    retry: 2,
-    retryDelay: 1000
-  });
 
 
 
 
   // Loading state
-  if (parsecInfo.isLoading || jamfComputersFromMongo.isLoading || machineInfoFromLDAP.isLoading || leoAssignments.isLoading) {
+  if (parsecInfo.isLoading || jamfComputersFromMongo.isLoading || machineInfoFromLDAP.isLoading ) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
@@ -174,7 +168,7 @@ const CompositeMachineInfo = () => {
               Loading machine data from multiple sources...
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              This may take a moment as we gather information from JAMF, Active Directory, Parsec, and Leo.
+              This may take a moment as we gather information from JAMF, Active Directory, Parsec.
             </Typography>
           </Box>
         </Paper>
@@ -183,7 +177,7 @@ const CompositeMachineInfo = () => {
   }
 
   // Error state
-  if (parsecInfo.error || jamfComputersFromMongo.error || machineInfoFromLDAP.error || leoAssignments.error) {
+  if (parsecInfo.error || jamfComputersFromMongo.error || machineInfoFromLDAP.error ) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Typography variant="h4" color="primary" fontWeight="medium" gutterBottom>
@@ -218,12 +212,6 @@ const CompositeMachineInfo = () => {
             </Alert>
           )}
           
-          {leoAssignments.error && (
-            <Alert severity="error" sx={{ mb: 2 }} variant="outlined">
-              <AlertTitle>Leo Assignments Error</AlertTitle>
-              {leoAssignments.error.message || JSON.stringify(leoAssignments.error)}
-            </Alert>
-          )}
         </Paper>
       </Container>
     );
@@ -247,9 +235,6 @@ const CompositeMachineInfo = () => {
       item => item.host.toLowerCase() === machine.name.toLowerCase()
     );
     
-    const leoComputerInfo = leoAssignments.data.find(
-      item => item.hostname.toLowerCase() === machine.name.toLowerCase()
-    );
     
     // Extract useful properties
     const hwMake = jamfComputerInfo?.hardware?.make || 'N/A';
@@ -274,10 +259,6 @@ const CompositeMachineInfo = () => {
         osVersion: osVersion,
         osBuild: osBuild
       },
-      leo: {
-        username: leoComputerInfo?.username || 'N/A',
-        assignmentType: leoComputerInfo?.user_assignment_type || 'N/A'
-      },
       parsec: {
         username: parsecHostInfo?.name || 'N/A',
         online: parsecHostInfo?.machine_online ? 'Yes' : 'No',
@@ -296,7 +277,6 @@ const CompositeMachineInfo = () => {
       machine.activeDirectory.operatingSystem.toLowerCase().includes(searchTerm.toLowerCase()) ||
       machine.jamf.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
       machine.jamf.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      machine.leo.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       machine.parsec.username.toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
@@ -323,7 +303,7 @@ const CompositeMachineInfo = () => {
           Composite Machine Information
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Consolidated view of machine data from Active Directory, JAMF, Leo, and Parsec
+          Consolidated view of machine data from Active Directory, JAMF and Parsec
         </Typography>
       </Box>
       
@@ -337,7 +317,6 @@ const CompositeMachineInfo = () => {
           <Tab label="All Sources" />
           <Tab label="Active Directory" />
           <Tab label="JAMF" />
-          <Tab label="Leo" />
           <Tab label="Parsec" />
         </Tabs>
         
@@ -512,13 +491,6 @@ const CompositeMachineInfo = () => {
                             label={machine.activeDirectory.operatingSystem} 
                             variant="outlined" 
                           />
-                          {machine.leo.username !== 'N/A' && (
-                            <Chip 
-                              size="small" 
-                              label={`Leo: ${machine.leo.username}`} 
-                              variant="outlined" 
-                            />
-                          )}
                           {machine.parsec.username !== 'N/A' && (
                             <Chip 
                               size="small" 
@@ -613,32 +585,6 @@ const CompositeMachineInfo = () => {
                         </Box>
                       </Grid>
                       
-                      {/* Leo Section */}
-                      <Grid item xs={12} md={6}>
-                        <Box sx={{ mt: 2 }}>
-                          <Typography variant="subtitle2" color="primary" gutterBottom>
-                            Leo Assignment Information
-                          </Typography>
-                          <TableContainer component={Paper} variant="outlined">
-                            <Table size="small">
-                              <TableBody>
-                                <TableRow>
-                                  <TableCell sx={{ fontWeight: 'medium', width: '40%' }}>
-                                    Username
-                                  </TableCell>
-                                  <TableCell>{machine.leo.username}</TableCell>
-                                </TableRow>
-                                <TableRow>
-                                  <TableCell sx={{ fontWeight: 'medium' }}>
-                                    Assignment Type
-                                  </TableCell>
-                                  <TableCell>{machine.leo.assignmentType}</TableCell>
-                                </TableRow>
-                              </TableBody>
-                            </Table>
-                          </TableContainer>
-                        </Box>
-                      </Grid>
                       
                       {/* Parsec Section */}
                       <Grid item xs={12} md={6}>

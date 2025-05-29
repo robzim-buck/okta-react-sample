@@ -645,7 +645,11 @@ export default function OktaLocations(props) {
                 onChange={(e) => setLocationFilter(e.target.value)}
                 MenuProps={{ 
                   PaperProps: { 
-                    style: { maxHeight: 400 } 
+                    style: { 
+                      maxHeight: 400,
+                      backgroundColor: 'white',
+                      color: 'black'
+                    } 
                   } 
                 }}
               >

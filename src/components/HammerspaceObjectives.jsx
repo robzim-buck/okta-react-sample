@@ -1,10 +1,13 @@
 import { 
-  Chip, Typography, Divider, Box, Container,
-  Grid, Card, CardContent, CardHeader, Button,
-  Accordion, AccordionSummary, AccordionDetails
+  Chip, Typography, Box, Container, Grid, Alert,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, IconButton, Collapse, Tooltip, Card
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import uuid from 'react-uuid';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import StorageIcon from '@mui/icons-material/Storage';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import UpdateIcon from '@mui/icons-material/Update';
 import { useState } from 'react';
 import { useQueries } from "@tanstack/react-query";
 import CircularProgress from '@mui/material/CircularProgress';
@@ -24,14 +27,22 @@ export default function HammerspaceObjectives(props) {
         queries: [
           {
             queryKey: ["hammerspaceObjectives"],
-            queryFn: () =>
-            fetch("https://laxcoresrv.buck.local:8000/hammerspace?item=objectives",
-                {
-                methood: "GET",
-                headers: {"x-token": "a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo",
+            queryFn: async () => {
+                const response = await fetch("https://laxcoresrv.buck.local:8000/hammerspace?item=objectives", {
+                    method: "GET",
+                    headers: {
+                        "x-token": "a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo",
                         "Content-type": "application/json"
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch objectives: ${response.statusText}`);
                 }
-              },).then((res) => res.json()),
+                return response.json();
+            },
+            staleTime: 5 * 60 * 1000, // 5 minutes
+            refetchOnWindowFocus: false,
+            retry: 2
         },
         ]
     });
@@ -46,10 +57,12 @@ export default function HammerspaceObjectives(props) {
     
     if (hammerspaceObjectives.error) {
         return (
-            <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="h6" color="error" gutterBottom>An error has occurred</Typography>
-                <Typography color="text.secondary">{hammerspaceObjectives.error.message}</Typography>
-            </Box>
+            <Container maxWidth="lg" sx={{ py: 4 }}>
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>Failed to load Hammerspace objectives</Typography>
+                    <Typography variant="body2">{hammerspaceObjectives.error.message}</Typography>
+                </Alert>
+            </Container>
         );
     }
     
@@ -63,6 +76,17 @@ export default function HammerspaceObjectives(props) {
                 </Box>
             );
         }
+
+        // Calculate statistics
+        const recentObjectives = sortedData.filter(obj => {
+            const daysSinceCreation = Math.floor((Date.now() - new Date(obj.created)) / (1000 * 60 * 60 * 24));
+            return daysSinceCreation < 7;
+        });
+        
+        const objectiveTypes = [...new Set(sortedData.map(obj => obj.type).filter(Boolean))];
+        const averageAge = Math.floor(sortedData.reduce((sum, obj) => {
+            return sum + Math.floor((Date.now() - new Date(obj.created)) / (1000 * 60 * 60 * 24));
+        }, 0) / sortedData.length);
 
         return (
             <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -78,145 +102,249 @@ export default function HammerspaceObjectives(props) {
                     />
                 </Box>
 
-                <Grid container spacing={3}>
-                    {sortedData.map((objective) => {
-                        // Calculate time since creation and modification
-                        const createdDate = new Date(objective.created);
-                        const modifiedDate = new Date(objective.modified);
-                        const daysSinceCreation = Math.floor((Date.now() - createdDate) / (1000 * 60 * 60 * 24));
-                        const isRecent = daysSinceCreation < 7; // Consider "recent" if created in the last 7 days
-                        
-                        return (
-                            <Grid item xs={12} key={uuid()}>
-                                <Card 
-                                    variant="outlined" 
-                                    sx={{ 
-                                        boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                                        transition: 'all 0.2s ease-in-out',
-                                        borderLeft: isRecent ? '4px solid #4caf50' : '4px solid #2196f3',
-                                        '&:hover': {
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-                                            transform: 'translateY(-2px)'
-                                        }
-                                    }}
-                                >
-                                    <CardContent sx={{ p: 0 }}>
-                                        <Accordion 
-                                            expanded={expanded[objective.name] || false}
-                                            onChange={() => handleToggle(objective.name)}
-                                            sx={{ boxShadow: 'none' }}
-                                        >
-                                            <AccordionSummary 
-                                                expandIcon={
-                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                        <Button 
-                                                            size="small" 
-                                                            variant="text" 
-                                                            endIcon={<ExpandMoreIcon />}
-                                                            sx={{ 
-                                                                ml: 1,
-                                                                minWidth: 100,
-                                                                transition: 'all 0.2s ease'
-                                                            }}
-                                                        >
-                                                            {expanded[objective.name] ? 'Hide Details' : 'Show Details'}
-                                                        </Button>
-                                                    </Box>
-                                                }
-                                                sx={{ px: 3, py: 2 }}
-                                            >
-                                                <Grid container spacing={2} alignItems="center">
-                                                    <Grid item xs={12} md={6}>
-                                                        <Typography variant='h6'>
-                                                            {objective.name}
-                                                        </Typography>
-                                                    </Grid>
-                                                    <Grid item xs={12} md={6}>
-                                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                                                            {isRecent && (
-                                                                <Chip 
-                                                                    variant="filled" 
-                                                                    color="success" 
-                                                                    size="small"
-                                                                    label="New" 
-                                                                    sx={{ fontWeight: 'bold' }}
-                                                                />
-                                                            )}
-                                                        </Box>
-                                                    </Grid>
-                                                </Grid>
-                                            </AccordionSummary>
-                                            
-                                            <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
-                                                <Divider sx={{ mb: 2 }} />
-                                                <Grid container spacing={2}>
-                                                    <Grid item xs={12} sm={6}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Created
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="info" 
-                                                                size="small"
-                                                                label={createdDate.toLocaleDateString()} 
-                                                            />
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                {daysSinceCreation} days ago
-                                                            </Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    <Grid item xs={12} sm={6}>
-                                                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                            Last Modified
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="info" 
-                                                                size="small"
-                                                                label={modifiedDate.toLocaleDateString()} 
-                                                            />
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                {Math.floor((Date.now() - modifiedDate) / (1000 * 60 * 60 * 24))} days ago
-                                                            </Typography>
-                                                        </Box>
-                                                    </Grid>
-                                                    
-                                                    {objective.type && (
-                                                        <Grid item xs={12} sm={6}>
-                                                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                                Type
-                                                            </Typography>
-                                                            <Chip 
-                                                                variant="outlined" 
-                                                                color="secondary" 
-                                                                size="small"
-                                                                label={objective.type} 
-                                                            />
-                                                        </Grid>
-                                                    )}
-                                                    
-                                                    {objective.description && (
-                                                        <Grid item xs={12}>
-                                                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                                                                Description
-                                                            </Typography>
-                                                            <Typography variant="body2">
-                                                                {objective.description || "No description provided"}
-                                                            </Typography>
-                                                        </Grid>
-                                                    )}
-                                                </Grid>
-                                            </AccordionDetails>
-                                        </Accordion>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        );
-                    })}
+                {/* Summary Statistics */}
+                <Grid container spacing={2} sx={{ mb: 4 }}>
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {sortedData.length}
+                            </Typography>
+                            <Typography variant="body2">
+                                Total Objectives
+                            </Typography>
+                        </Card>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {recentObjectives.length}
+                            </Typography>
+                            <Typography variant="body2">
+                                Created This Week
+                            </Typography>
+                        </Card>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light', color: 'info.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {objectiveTypes.length}
+                            </Typography>
+                            <Typography variant="body2">
+                                Unique Types
+                            </Typography>
+                        </Card>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, textAlign: 'center', bgcolor: 'secondary.light', color: 'secondary.contrastText' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                                {averageAge}
+                            </Typography>
+                            <Typography variant="body2">
+                                Avg Age (days)
+                            </Typography>
+                        </Card>
+                    </Grid>
                 </Grid>
+
+                <TableContainer component={Paper} sx={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                    <Table sx={{ minWidth: 650 }} size="small">
+                        <TableHead>
+                            <TableRow sx={{ bgcolor: 'primary.main' }}>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold', width: '40px' }}>
+                                    {/* Expand column */}
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <StorageIcon fontSize="small" />
+                                        Name
+                                    </Box>
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    Type
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <CalendarTodayIcon fontSize="small" />
+                                        Created
+                                    </Box>
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <UpdateIcon fontSize="small" />
+                                        Modified
+                                    </Box>
+                                </TableCell>
+                                <TableCell sx={{ color: 'primary.contrastText', fontWeight: 'bold' }}>
+                                    Status
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {sortedData.map((objective) => {
+                                // Calculate time since creation and modification
+                                const createdDate = new Date(objective.created);
+                                const modifiedDate = new Date(objective.modified);
+                                const daysSinceCreation = Math.floor((Date.now() - createdDate) / (1000 * 60 * 60 * 24));
+                                const daysSinceModification = Math.floor((Date.now() - modifiedDate) / (1000 * 60 * 60 * 24));
+                                const isRecent = daysSinceCreation < 7; // Consider "recent" if created in the last 7 days
+                                const objectiveKey = objective.name || objective.id;
+                                
+                                return (
+                                    <>
+                                        <TableRow 
+                                            key={objectiveKey}
+                                            sx={{ 
+                                                '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
+                                                '&:hover': { bgcolor: 'action.selected' },
+                                                borderLeft: isRecent ? '4px solid #4caf50' : '4px solid transparent',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={() => handleToggle(objectiveKey)}
+                                        >
+                                            <TableCell>
+                                                <IconButton size="small">
+                                                    {expanded[objectiveKey] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                                </IconButton>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                    {objective.name}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                {objective.type ? (
+                                                    <Chip 
+                                                        variant="outlined" 
+                                                        color="secondary" 
+                                                        size="small"
+                                                        label={objective.type} 
+                                                    />
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">-</Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Tooltip title={createdDate.toLocaleString()}>
+                                                    <Box>
+                                                        <Typography variant="body2">
+                                                            {createdDate.toLocaleDateString()}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {daysSinceCreation === 0 ? 'Today' : 
+                                                             daysSinceCreation === 1 ? 'Yesterday' : 
+                                                             `${daysSinceCreation} days ago`}
+                                                        </Typography>
+                                                    </Box>
+                                                </Tooltip>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Tooltip title={modifiedDate.toLocaleString()}>
+                                                    <Box>
+                                                        <Typography variant="body2">
+                                                            {modifiedDate.toLocaleDateString()}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {daysSinceModification === 0 ? 'Today' : 
+                                                             daysSinceModification === 1 ? 'Yesterday' : 
+                                                             `${daysSinceModification} days ago`}
+                                                        </Typography>
+                                                    </Box>
+                                                </Tooltip>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                                    {isRecent && (
+                                                        <Chip 
+                                                            variant="filled" 
+                                                            color="success" 
+                                                            size="small"
+                                                            label="New" 
+                                                        />
+                                                    )}
+                                                </Box>
+                                            </TableCell>
+                                        </TableRow>
+                                        
+                                        {/* Collapsible Details Row */}
+                                        <TableRow>
+                                            <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+                                                <Collapse in={expanded[objectiveKey]} timeout="auto" unmountOnExit>
+                                                    <Box sx={{ margin: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                                        <Grid container spacing={3}>
+                                                            {objective.id && (
+                                                                <Grid item xs={12} md={6}>
+                                                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                        Objective ID
+                                                                    </Typography>
+                                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                                        {objective.id}
+                                                                    </Typography>
+                                                                </Grid>
+                                                            )}
+                                                            
+                                                            <Grid item xs={12} md={6}>
+                                                                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                    Timestamps
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    Created: {createdDate.toLocaleString()}
+                                                                </Typography>
+                                                                <Typography variant="body2">
+                                                                    Modified: {modifiedDate.toLocaleString()}
+                                                                </Typography>
+                                                            </Grid>
+                                                            
+                                                            {objective.description && (
+                                                                <Grid item xs={12}>
+                                                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                        Description
+                                                                    </Typography>
+                                                                    <Typography variant="body2">
+                                                                        {objective.description}
+                                                                    </Typography>
+                                                                </Grid>
+                                                            )}
+
+                                                            {/* Additional Properties */}
+                                                            {Object.keys(objective).length > 5 && (
+                                                                <Grid item xs={12}>
+                                                                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                                                        Raw Data
+                                                                    </Typography>
+                                                                    <Box sx={{ 
+                                                                        p: 1, 
+                                                                        bgcolor: 'white', 
+                                                                        borderRadius: 1, 
+                                                                        maxHeight: 200, 
+                                                                        overflow: 'auto',
+                                                                        border: '1px solid',
+                                                                        borderColor: 'grey.300'
+                                                                    }}>
+                                                                        <pre style={{ 
+                                                                            margin: 0, 
+                                                                            fontSize: '0.75rem', 
+                                                                            whiteSpace: 'pre-wrap',
+                                                                            fontFamily: 'monospace'
+                                                                        }}>
+                                                                            {JSON.stringify(objective, null, 2)}
+                                                                        </pre>
+                                                                    </Box>
+                                                                </Grid>
+                                                            )}
+                                                        </Grid>
+                                                    </Box>
+                                                </Collapse>
+                                            </TableCell>
+                                        </TableRow>
+                                    </>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
             </Container>
         );
     }

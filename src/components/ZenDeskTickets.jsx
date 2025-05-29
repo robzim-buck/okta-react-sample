@@ -212,6 +212,14 @@ export default function ZenDeskTickets(props) {
                 value={status}
                 label="Status"
                 onChange={(e) => setStatus(e.target.value)}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      backgroundColor: 'white',
+                      color: 'black'
+                    }
+                  }
+                }}
               >
                 <MenuItem value="new">New</MenuItem>
                 <MenuItem value="open">Open</MenuItem>
@@ -322,6 +330,14 @@ export default function ZenDeskTickets(props) {
                       label="Priority"
                       onChange={(e) => setPriorityFilter(e.target.value)}
                       displayEmpty
+                      MenuProps={{
+                        PaperProps: {
+                          style: {
+                            backgroundColor: 'white',
+                            color: 'black'
+                          }
+                        }
+                      }}
                     >
                       <MenuItem value="">All</MenuItem>
                       {priorities.map(priority => (

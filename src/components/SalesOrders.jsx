@@ -109,7 +109,15 @@ export default function SalesOrders(props) {
                 id="table-select"
                 value={table}
                 label="System"
-                onChange={handleTableChange}>
+                onChange={handleTableChange}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      backgroundColor: 'white',
+                      color: 'black'
+                    }
+                  }
+                }}>
             <MenuItem value='SANDBOX'>Sandbox</MenuItem>
             <MenuItem value='PRODUCTION'>Production</MenuItem>
             </Select>

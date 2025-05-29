@@ -434,6 +434,14 @@ export default function DocusignUsers(props) {
               value={statusFilter}
               label="Status"
               onChange={(e) => setStatusFilter(e.target.value)}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    backgroundColor: 'white',
+                    color: 'black'
+                  }
+                }
+              }}
             >
               <MenuItem value="">All Statuses</MenuItem>
               {userStatuses.map(status => (

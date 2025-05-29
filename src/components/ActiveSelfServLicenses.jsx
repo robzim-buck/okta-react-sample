@@ -27,6 +27,10 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 const sixty_minutes = 60 * 60 * 1000;
 // const twenty_four_hours_plus_buffer = (24*60*60*1000) + 20000; // add 20 seconds
 
+
+const endpoint = 'https://laxcoresrv.buck.local:8000'
+
+
 const emailUniqueEntries = (list) => {
     let emailList = list.map(em => { return em.email });
     let emailSet = new Set(emailList)
@@ -252,10 +256,11 @@ export default function ActiveSelfServLicenses(props) {
     const [productfilter, setProductFilter] = useState('');   
     const [sortField, setSortField] = useState('email');
     const [sortDirection, setSortDirection] = useState('asc');
+    const [tableSortField, setTableSortField] = useState('email');
+    const [tableSortDirection, setTableSortDirection] = useState('asc');
 
     const [tableView, setTableView] = useState(false);
     const [expandedUsers, setExpandedUsers] = useState({});
-    const [groupedUsers, setGroupedUsers] = useState([]);
     // We don't need allLicenses state anymore - removed
     const [previsible, setPrevisible] = useState(false);
 
@@ -303,25 +308,58 @@ export default function ActiveSelfServLicenses(props) {
             setTableView(false);
         }
     };
+
     
+  function releaseLicense(event, useremail, license) {
+    if ( ! useremail.includes('buck.co') && ! useremail.includes('anyways.co') && ! useremail.includes('giantant.ca') ) {
+      alert(`Only works for Buck, GiantAnt and Anyways Users, not for ${useremail}`)
+      return
+    }
+    setOperation('Returning');
+    setPrevisible(true)
+    setProduct(license);
+    setUser(useremail);
+    const url = `${endpoint}/licenses/release_self_service_license?product=${license.toLowerCase()}&email=${useremail}`
+
+    fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      setPrevisible(false)
+      setSuccessvisible(true);
+      return data;
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      setPrevisible(false);
+    });
+  }
+
+
     // Function to handle license returns
-    const returnLicense = (e, email, productName) => {
-        e.preventDefault();
-        setPrevisible(true);
-        setOperation('Returning');
-        setProduct(productName);
-        setUser(email);
+    // const returnLicense = (e, email, productName) => {
+    //     e.preventDefault();
+    //     setPrevisible(true);
+    //     setOperation('Returning');
+    //     setProduct(productName);
+    //     setUser(email);
         
-        // API call to return license would go here
-        // For now we'll just simulate success
-        setTimeout(() => {
-            setPrevisible(false);
-            setSuccessvisible(true);
+    //     // API call to return license would go here
+    //     // For now we'll just simulate success
+    //     setTimeout(() => {
+    //         setPrevisible(false);
+    //         setSuccessvisible(true);
             
-            // Refresh the data after operation
-            activeLicenses.refetch();
-        }, 1500);
-    };
+    //         // Refresh the data after operation
+    //         activeLicenses.refetch();
+    //     }, 1500);
+    // };
     
     // Define columns for the license table view
     const columns = [
@@ -510,7 +548,7 @@ export default function ActiveSelfServLicenses(props) {
                     size="small"
                     startIcon={<DeleteIcon />}
                     onClick={(e) => {
-                        returnLicense(e, params.row.email, params.row.product);
+                        releaseLicense(e, params.row.email, params.row.product);
                     }}
                 >
                     Return
@@ -577,6 +615,7 @@ export default function ActiveSelfServLicenses(props) {
             try {
             const response = await fetch("https://laxcoresrv.buck.local:8000/licenses/active_self_service_licenses", {
                 method: 'GET',
+                mode: 'cors',
                 headers: {
                 'x-token': 'a4taego8aerg;oeu;ghak1934570283465g23745693^$&%^$#$#^$#^#$nrghaoiughnoaergfo'
                 }
@@ -621,6 +660,15 @@ export default function ActiveSelfServLicenses(props) {
         }
     }
     
+    const handleTableSort = (field) => {
+        if (tableSortField === field) {
+            setTableSortDirection(tableSortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setTableSortField(field);
+            setTableSortDirection('asc');
+        }
+    }
+    
     const sortData = (data) => {
         if (!data || !Array.isArray(data)) return data;
         
@@ -662,6 +710,51 @@ export default function ActiveSelfServLicenses(props) {
             } else {
                 const comparison = aValue - bValue;
                 return sortDirection === 'asc' ? comparison : -comparison;
+            }
+        });
+    }
+    
+    const sortTableData = (data) => {
+        if (!data || !Array.isArray(data)) return data;
+        
+        return [...data].sort((a, b) => {
+            let aValue, bValue;
+            
+            switch (tableSortField) {
+                case 'email':
+                    aValue = a.email || '';
+                    bValue = b.email || '';
+                    break;
+                case 'product':
+                    aValue = a.product || '';
+                    bValue = b.product || '';
+                    break;
+                case 'status':
+                    // Sort by time remaining (expiry - now)
+                    const aExpiry = a.expiry ? Date.parse(a.expiry) : 0;
+                    const bExpiry = b.expiry ? Date.parse(b.expiry) : 0;
+                    aValue = aExpiry - Date.now();
+                    bValue = bExpiry - Date.now();
+                    break;
+                case 'expires':
+                    aValue = a.expiry ? Date.parse(a.expiry) : 0;
+                    bValue = b.expiry ? Date.parse(b.expiry) : 0;
+                    break;
+                case 'issued':
+                    aValue = a.timestamp ? Date.parse(a.timestamp) : 0;
+                    bValue = b.timestamp ? Date.parse(b.timestamp) : 0;
+                    break;
+                default:
+                    aValue = a.email || '';
+                    bValue = b.email || '';
+            }
+            
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                const comparison = aValue.localeCompare(bValue);
+                return tableSortDirection === 'asc' ? comparison : -comparison;
+            } else {
+                const comparison = aValue - bValue;
+                return tableSortDirection === 'asc' ? comparison : -comparison;
             }
         });
     }
@@ -728,9 +821,9 @@ export default function ActiveSelfServLicenses(props) {
             console.log('After product filter, items:', filteredData.length);
         }
         
-        // If we still have no data, use a sample dataset for testing
-        if (filteredData.length === 0) {
-            console.log('No data after filtering, using sample dataset');
+        // Only use sample data if there's no real data AND no active filters
+        if (filteredData.length === 0 && finalSortedData.length === 0 && !emailfilter && !productfilter) {
+            console.log('No real data available, using sample dataset');
             filteredData = [
                 {
                     email: 'test.user1@example.com',
@@ -776,11 +869,6 @@ export default function ActiveSelfServLicenses(props) {
             ...user,
             products: Array.from(user.products)
         }));
-        
-        // Only update grouped users if needed
-        if (!groupedUsers.length || groupedData.length !== groupedUsers.length) {
-            setGroupedUsers(groupedData);
-        }
   
         if (finalSortedData) {
             extendedCount = finalSortedData.filter((x) => {
@@ -905,182 +993,56 @@ export default function ActiveSelfServLicenses(props) {
                                         color="#0078D7" 
                                     />
                                 </Box>
-                                
-                                {/* License Status Distribution */}
-                                <Box sx={{ mt: 4 }}>
-                                    <Divider sx={{ mb: 2 }} />
-                                    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium', color: 'text.secondary' }}>
-                                        License Status
-                                    </Typography>
-                                    
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 2 }}>
-                                        {/* Active Licenses */}
-                                        <LicenseStatusItem 
-                                            count={finalSortedData.filter(license => {
-                                                const expiry = Date.parse(license.expiry);
-                                                const timeToExpire = expiry - Date.now();
-                                                return timeToExpire > (sixty_minutes * 2.0);
-                                            }).length} 
-                                            label="Active"
-                                            color="success.main"
-                                        />
-                                        
-                                        {/* Expiring Soon */}
-                                        <LicenseStatusItem 
-                                            count={finalSortedData.filter(license => {
-                                                const expiry = Date.parse(license.expiry);
-                                                const timeToExpire = expiry - Date.now();
-                                                return timeToExpire <= (sixty_minutes * 2.0) && timeToExpire > 0;
-                                            }).length} 
-                                            label="Expiring Soon"
-                                            color="warning.main"
-                                        />
-                                        
-                                        {/* Expired */}
-                                        <LicenseStatusItem 
-                                            count={finalSortedData.filter(license => {
-                                                const expiry = Date.parse(license.expiry);
-                                                const timeToExpire = expiry - Date.now();
-                                                return timeToExpire <= 0;
-                                            }).length} 
-                                            label="Expired"
-                                            color="error.main"
-                                        />
-                                        
-                                        {/* Extended */}
-                                        <LicenseStatusItem 
-                                            count={extendedCount}
-                                            label="Extended"
-                                            color="info.main"
-                                        />
-                                    </Box>
-                                </Box>
                             </Card>
                         </Grid>
                         
                         <Grid item size={6}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="h6" gutterBottom>Filters</Typography>
-                                <Box>
-                                    <Button
-                                        variant="contained"
-                                        color={tableView ? "secondary" : "primary"}
-                                        onClick={toggleTableView}
-                                        sx={{ ml: 2 }}
-                                    >
-                                        {tableView ? "Card View" : "Table View"}
-                                    </Button>
-                                </Box>
-                            </Box>
+                            <Typography variant="h6" gutterBottom>License Status</Typography>
                             
-                            <Grid container spacing={2}>
-                                <Grid item size={6}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="body2" sx={{ minWidth: 120 }}>
-                                            Email Filter:
-                                        </Typography>
-                                        <Box sx={{ flex: 1 }}>
-                                            <input 
-                                                id="emailfilter"
-                                                name="emailfilter"
-                                                type="text"
-                                                value={emailfilter}
-                                                placeholder="Filter by email address..."
-                                                onChange={event => setEmailFilter(event.target.value)}
-                                                style={{ 
-                                                    width: '100%', 
-                                                    padding: '8px 12px', 
-                                                    border: '1px solid #ccc', 
-                                                    borderRadius: '4px'
-                                                }}
-                                            />
-                                        </Box>
-                                        <Button 
-                                            onClick={clearEmailFilter} 
-                                            size="small" 
-                                            variant="outlined" 
-                                            color="secondary"
-                                            disabled={!emailfilter}
-                                        >
-                                            Clear
-                                        </Button>
-                                    </Box>
-                                </Grid>
-                                
-                                <Grid item size={6}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="body2" sx={{ minWidth: 120 }}>
-                                            Sort By:
-                                        </Typography>
-                                        <FormControl size="small" sx={{ minWidth: 120 }}>
-                                            <Select
-                                                value={sortField}
-                                                onChange={(e) => setSortField(e.target.value)}
-                                                displayEmpty
-                                            >
-                                                <MenuItem value="email">Email</MenuItem>
-                                                <MenuItem value="product">Product</MenuItem>
-                                                <MenuItem value="status">Status</MenuItem>
-                                                <MenuItem value="expiry">Expiry Date</MenuItem>
-                                                <MenuItem value="issued">Issue Date</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                                            startIcon={sortDirection === 'asc' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
-                                        >
-                                            {sortDirection === 'asc' ? 'Asc' : 'Desc'}
-                                        </Button>
-                                    </Box>
-                                </Grid>
-                                
-                                <Grid item size={6}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Typography variant="body2" sx={{ minWidth: 120 }}>
-                                            Product Filter:
-                                        </Typography>
-                                        <Box sx={{ flex: 1 }}>
-                                            <input 
-                                                id="productfilter"
-                                                name="productfilter"
-                                                type="text"
-                                                value={productfilter}
-                                                placeholder="Filter by product name..."
-                                                onChange={event => setProductFilter(event.target.value)}
-                                                style={{ 
-                                                    width: '100%', 
-                                                    padding: '8px 12px', 
-                                                    border: '1px solid #ccc', 
-                                                    borderRadius: '4px' 
-                                                }}
-                                            />
-                                        </Box>
-                                        <Button 
-                                            onClick={clearProductFilter} 
-                                            size="small" 
-                                            variant="outlined" 
-                                            color="secondary"
-                                            disabled={!productfilter}
-                                        >
-                                            Clear
-                                        </Button>
-                                    </Box>
-                                </Grid>
-                                
-                                <Grid item size={6}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-                                        <Chip 
-                                            icon={<SortIcon />}
-                                            label={`Sorted by ${sortField} (${sortDirection})`}
-                                            variant="outlined"
-                                            color="primary"
-                                            size="small"
-                                        />
-                                    </Box>
-                                </Grid>
-                            </Grid>
+                            {/* License Status Distribution */}
+                            <Card sx={{ p: 2, bgcolor: '#f9f9f9', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 2 }}>
+                                    {/* Active Licenses */}
+                                    <LicenseStatusItem 
+                                        count={finalSortedData.filter(license => {
+                                            const expiry = Date.parse(license.expiry);
+                                            const timeToExpire = expiry - Date.now();
+                                            return timeToExpire > (sixty_minutes * 2.0);
+                                        }).length} 
+                                        label="Active"
+                                        color="success.main"
+                                    />
+                                    
+                                    {/* Expiring Soon */}
+                                    <LicenseStatusItem 
+                                        count={finalSortedData.filter(license => {
+                                            const expiry = Date.parse(license.expiry);
+                                            const timeToExpire = expiry - Date.now();
+                                            return timeToExpire <= (sixty_minutes * 2.0) && timeToExpire > 0;
+                                        }).length} 
+                                        label="Expiring Soon"
+                                        color="warning.main"
+                                    />
+                                    
+                                    {/* Expired */}
+                                    <LicenseStatusItem 
+                                        count={finalSortedData.filter(license => {
+                                            const expiry = Date.parse(license.expiry);
+                                            const timeToExpire = expiry - Date.now();
+                                            return timeToExpire <= 0;
+                                        }).length} 
+                                        label="Expired"
+                                        color="error.main"
+                                    />
+                                    
+                                    {/* Extended */}
+                                    <LicenseStatusItem 
+                                        count={extendedCount}
+                                        label="Extended"
+                                        color="info.main"
+                                    />
+                                </Box>
+                            </Card>
                         </Grid>
                     </Grid>
                 </Card>
@@ -1090,6 +1052,149 @@ export default function ActiveSelfServLicenses(props) {
                     <Typography>No licenses found with the current filters</Typography>
                 )}
                 
+                {/* Filters Section */}
+                {filteredData && filteredData.length > 0 && (
+                    <Card 
+                        variant="outlined" 
+                        sx={{ 
+                            mb: 4, 
+                            p: 2, 
+                            backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                            borderRadius: 2,
+                            width: '100%'
+                        }}
+                    >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="h6" gutterBottom>Filters & View Options</Typography>
+                            <Button
+                                variant="contained"
+                                color={tableView ? "secondary" : "primary"}
+                                onClick={toggleTableView}
+                                sx={{ ml: 2 }}
+                            >
+                                {tableView ? "Card View" : "Table View"}
+                            </Button>
+                        </Box>
+                        
+                        <Grid container spacing={2}>
+                            <Grid item size={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2" sx={{ minWidth: 120 }}>
+                                        Email Filter:
+                                    </Typography>
+                                    <Box sx={{ flex: 1 }}>
+                                        <input 
+                                            id="emailfilter"
+                                            name="emailfilter"
+                                            type="text"
+                                            value={emailfilter}
+                                            placeholder="Filter by email address..."
+                                            onChange={event => setEmailFilter(event.target.value)}
+                                            style={{ 
+                                                width: '100%', 
+                                                padding: '8px 12px', 
+                                                border: '1px solid #ccc', 
+                                                borderRadius: '4px'
+                                            }}
+                                        />
+                                    </Box>
+                                    <Button 
+                                        onClick={clearEmailFilter} 
+                                        size="small" 
+                                        variant="outlined" 
+                                        color="secondary"
+                                        disabled={!emailfilter}
+                                    >
+                                        Clear
+                                    </Button>
+                                </Box>
+                            </Grid>
+                            
+                            <Grid item size={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2" sx={{ minWidth: 120 }}>
+                                        Sort By:
+                                    </Typography>
+                                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                                        <Select
+                                            value={sortField}
+                                            onChange={(e) => setSortField(e.target.value)}
+                                            displayEmpty
+                                            MenuProps={{
+                                                PaperProps: {
+                                                    style: {
+                                                        backgroundColor: 'white',
+                                                        color: 'black'
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <MenuItem value="email">Email</MenuItem>
+                                            <MenuItem value="product">Product</MenuItem>
+                                            <MenuItem value="status">Status</MenuItem>
+                                            <MenuItem value="expiry">Expiry Date</MenuItem>
+                                            <MenuItem value="issued">Issue Date</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
+                                        startIcon={sortDirection === 'asc' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
+                                    >
+                                        {sortDirection === 'asc' ? 'Asc' : 'Desc'}
+                                    </Button>
+                                </Box>
+                            </Grid>
+                            
+                            <Grid item size={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2" sx={{ minWidth: 120 }}>
+                                        Product Filter:
+                                    </Typography>
+                                    <Box sx={{ flex: 1 }}>
+                                        <input 
+                                            id="productfilter"
+                                            name="productfilter"
+                                            type="text"
+                                            value={productfilter}
+                                            placeholder="Filter by product name..."
+                                            onChange={event => setProductFilter(event.target.value)}
+                                            style={{ 
+                                                width: '100%', 
+                                                padding: '8px 12px', 
+                                                border: '1px solid #ccc', 
+                                                borderRadius: '4px' 
+                                            }}
+                                        />
+                                    </Box>
+                                    <Button 
+                                        onClick={clearProductFilter} 
+                                        size="small" 
+                                        variant="outlined" 
+                                        color="secondary"
+                                        disabled={!productfilter}
+                                    >
+                                        Clear
+                                    </Button>
+                                </Box>
+                            </Grid>
+                            
+                            <Grid item size={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                                    <Chip 
+                                        icon={<SortIcon />}
+                                        label={`Sorted by ${sortField} (${sortDirection})`}
+                                        variant="outlined"
+                                        color="primary"
+                                        size="small"
+                                    />
+                                </Box>
+                            </Grid>
+                        </Grid>
+                    </Card>
+                )}
+
                 {/* Start of content when we have licenses */}
                 {filteredData && filteredData.length > 0 && (
                     <>
@@ -1212,7 +1317,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                         </td>
                                                                         <td style={{ padding: '12px' }}>
                                                                             <button
-                                                                                onClick={(e) => returnLicense(e, license.email, license.product)}
+                                                                                onClick={(e) => releaseLicense(e, license.email, license.product)}
                                                                                 style={{
                                                                                     backgroundColor: '#d32f2f',
                                                                                     color: 'white',
@@ -1337,11 +1442,87 @@ export default function ActiveSelfServLicenses(props) {
                                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                     <thead>
                                                         <tr style={{ borderBottom: '2px solid #1976d2', backgroundColor: '#f5f9ff' }}>
-                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Email</th>
-                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Product</th>
-                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Issued</th>
-                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Expires</th>
-                                                            <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
+                                                            <th 
+                                                                style={{ 
+                                                                    padding: '12px', 
+                                                                    textAlign: 'left', 
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none',
+                                                                    position: 'relative'
+                                                                }}
+                                                                onClick={() => handleTableSort('email')}
+                                                            >
+                                                                Email
+                                                                {tableSortField === 'email' && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                                                                        {tableSortDirection === 'asc' ? '↑' : '↓'}
+                                                                    </span>
+                                                                )}
+                                                            </th>
+                                                            <th 
+                                                                style={{ 
+                                                                    padding: '12px', 
+                                                                    textAlign: 'left', 
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none'
+                                                                }}
+                                                                onClick={() => handleTableSort('product')}
+                                                            >
+                                                                Product
+                                                                {tableSortField === 'product' && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                                                                        {tableSortDirection === 'asc' ? '↑' : '↓'}
+                                                                    </span>
+                                                                )}
+                                                            </th>
+                                                            <th 
+                                                                style={{ 
+                                                                    padding: '12px', 
+                                                                    textAlign: 'left', 
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none'
+                                                                }}
+                                                                onClick={() => handleTableSort('issued')}
+                                                            >
+                                                                Issued
+                                                                {tableSortField === 'issued' && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                                                                        {tableSortDirection === 'asc' ? '↑' : '↓'}
+                                                                    </span>
+                                                                )}
+                                                            </th>
+                                                            <th 
+                                                                style={{ 
+                                                                    padding: '12px', 
+                                                                    textAlign: 'left', 
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none'
+                                                                }}
+                                                                onClick={() => handleTableSort('expires')}
+                                                            >
+                                                                Expires
+                                                                {tableSortField === 'expires' && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                                                                        {tableSortDirection === 'asc' ? '↑' : '↓'}
+                                                                    </span>
+                                                                )}
+                                                            </th>
+                                                            <th 
+                                                                style={{ 
+                                                                    padding: '12px', 
+                                                                    textAlign: 'left', 
+                                                                    cursor: 'pointer',
+                                                                    userSelect: 'none'
+                                                                }}
+                                                                onClick={() => handleTableSort('status')}
+                                                            >
+                                                                Status
+                                                                {tableSortField === 'status' && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px' }}>
+                                                                        {tableSortDirection === 'asc' ? '↑' : '↓'}
+                                                                    </span>
+                                                                )}
+                                                            </th>
                                                             <th style={{ padding: '12px', textAlign: 'left' }}>Actions</th>
                                                         </tr>
                                                     </thead>
@@ -1383,7 +1564,7 @@ export default function ActiveSelfServLicenses(props) {
                                                         </tr>
                                                         
                                                         {/* Data rows dynamically generated */}
-                                                        {filteredData && filteredData.length > 0 && filteredData
+                                                        {filteredData && filteredData.length > 0 && sortTableData(filteredData)
                                                             .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                                                             .map((license, index) => {
                                                                 // Calculate expiry status
@@ -1456,7 +1637,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                         </td>
                                                                         <td style={{ padding: '10px' }}>
                                                                             <button 
-                                                                                onClick={(e) => returnLicense(e, license.email, license.product)}
+                                                                                onClick={(e) => releaseLicense(e, license.email, license.product)}
                                                                                 style={{
                                                                                     backgroundColor: '#d32f2f',
                                                                                     color: 'white',
@@ -1600,10 +1781,10 @@ export default function ActiveSelfServLicenses(props) {
                             <>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Typography variant="h6" color="primary">
-                                    Found {groupedUsers.length} users with active licenses
+                                    Found {groupedData.length} users with active licenses
                                 </Typography>
                                 <Chip 
-                                    label={`${groupedUsers.length} Users`} 
+                                    label={`${groupedData.length} Users`} 
                                     color="primary" 
                                     variant="outlined" 
                                     sx={{ fontWeight: 'bold' }}
@@ -1611,7 +1792,7 @@ export default function ActiveSelfServLicenses(props) {
                             </Box>
                             
                             {/* Card View */}
-                                {groupedUsers.map(user => {
+                                {groupedData.map(user => {
                                     if (!user || !user.email) return null;
                                     
                                     const isExpanded = expandedUsers[user.email] || false;
@@ -1882,7 +2063,7 @@ export default function ActiveSelfServLicenses(props) {
                                                                                     size="small"
                                                                                     startIcon={<DeleteIcon />}
                                                                                     onClick={(e) => {
-                                                                                        returnLicense(e, item.email, item.product);
+                                                                                        releaseLicense(e, item.email, item.product);
                                                                                     }}
                                                                                     sx={{ mt: 1 }}
                                                                                 >

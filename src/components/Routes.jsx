@@ -27,13 +27,19 @@ const ReturnSelfServeLicenses = lazy(() => import('./ReturnSelfServeLicenses'));
 const RLMLicenseInfo = lazy(() => import('./RLMLicenseInfo'));
 const Invoices = lazy(() => import('./Invoices'));
 const SalesOrders = lazy(() => import('./SalesOrders'));
-const ParsecLeoReport = lazy(() => import('./ParsecLeoReport'));
+// const ParsecLeoReport = lazy(() => import('./ParsecLeoReport'));
 const VMWareHosts = lazy(() => import('./VMWareHosts'));
 const ZenDeskTickets = lazy(() => import('./ZenDeskTickets'));
 const JAMFMachineInfo = lazy(() => import('./JAMFMachineInfo'));
 const HammerspaceShares = lazy(() => import('./HammerspaceShares'));
 const HammerspaceObjectives = lazy(() => import('./HammerspaceObjectives'));
 const HammerspaceSites = lazy(() => import('./HammerspaceSites'));
+const HammerSpaceTasks = lazy(() => import('./HammerSpaceTasks'));
+const HammerSpaceSystemHealth = lazy(() => import('./HammerSpaceSystemHealth'));
+const HammerSpaceDataPortals = lazy(() => import('./HammerSpaceDataPortals'));
+const HammerSpaceSystemInfo = lazy(() => import('./HammerSpaceSystemInfo'));
+const HammerSpaceProjects = lazy(() => import('./HammerSpaceProjects'));
+const HammerSpaceVolumeGroups = lazy(() => import('./HammerSpaceVolumeGroups'));
 const PhysicalDrives = lazy(() => import('./PhysicalDrives'));
 const LDAPMachineInfo = lazy(() => import('./LDAPMachineInfo'));
 const OktaUsers = lazy(() => import('./OktaUsers'));
@@ -48,6 +54,9 @@ const ZoomUsers = lazy(() => import('./ZoomUsers'));
 const DocusignUsers = lazy(() => import('./DocusignUsers'));
 const OktaLocations = lazy(() => import('./OktaLocations'));
 const OnboardNewUser = lazy(() => import('./OnboardNewUser'));
+const Rapid7Jobs = lazy(() => import('./Rapid7Jobs'));
+const Rapid7Investigations = lazy(() => import('./Rapid7Investigations'));
+const ZenDeskArchiveTickets = lazy(() => import('./ZenDeskArchiveTickets'));
 
 
 const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co"
@@ -161,6 +170,36 @@ const AppRoutes = () => {
           <Suspense fallback={<LoadingFallback />}><HammerspaceSites /></Suspense>
         }/>
       </Route>
+      <Route path="/hammerspacetasks" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}><HammerSpaceTasks /></Suspense>
+        }/>
+      </Route>
+      <Route path="/hammerspacesystemhealth" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}><HammerSpaceSystemHealth /></Suspense>
+        }/>
+      </Route>
+      <Route path="/hammerspacedataportals" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}><HammerSpaceDataPortals /></Suspense>
+        }/>
+      </Route>
+      <Route path="/hammerspacesysteminfo" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}><HammerSpaceSystemInfo /></Suspense>
+        }/>
+      </Route>
+      <Route path="/hammerspaceprojects" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}><HammerSpaceProjects /></Suspense>
+        }/>
+      </Route>
+      <Route path="/hammerspacevolumegroups" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}><HammerSpaceVolumeGroups /></Suspense>
+        }/>
+      </Route>
 
 
 
@@ -254,11 +293,11 @@ const AppRoutes = () => {
       </Route>
 
 
-      <Route path="/parsecleoreport" element={<RequiredAuth/>}>
+      {/* <Route path="/parsecleoreport" element={<RequiredAuth/>}>
         <Route path="" element={
           <Suspense fallback={<LoadingFallback />}><ParsecLeoReport /></Suspense>
         }/>
-      </Route>
+      </Route> */}
 
       <Route path="/vmwarehosts" element={<RequiredAuth/>}>
         <Route path="" element={
@@ -280,6 +319,30 @@ const AppRoutes = () => {
         <Route path="" element={
           <Suspense fallback={<LoadingFallback />}>
             <SalesOrders />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/rapid7jobs" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <Rapid7Jobs />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/rapid7investigations" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <Rapid7Investigations />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/zendeskarchivetickets" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <ZenDeskArchiveTickets />
           </Suspense>
         }/>
       </Route>

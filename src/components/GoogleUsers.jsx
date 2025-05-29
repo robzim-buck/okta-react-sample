@@ -256,6 +256,14 @@ export default function GoogleUsers(props) {
                 value={departmentFilter}
                 label="Department"
                 onChange={(e) => setDepartmentFilter(e.target.value)}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      backgroundColor: 'white',
+                      color: 'black'
+                    }
+                  }
+                }}
               >
                 <MenuItem value="">All Departments</MenuItem>
                 {departments.map(dept => (

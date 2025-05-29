@@ -425,6 +425,14 @@ export default function ZoomUsers(props) {
               value={userTypeFilter}
               label="User Type"
               onChange={(e) => setUserTypeFilter(e.target.value)}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    backgroundColor: 'white',
+                    color: 'black'
+                  }
+                }
+              }}
             >
               <MenuItem value="">All Types</MenuItem>
               {userTypes.map(type => (
