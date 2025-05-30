@@ -62,12 +62,13 @@ import {
   Login as LoginIcon,
   Security as SecurityIcon,
   FindInPage as FindInPageIcon,
-  Archive as ArchiveIcon
+  Archive as ArchiveIcon,
+  RestartAlt as RestartAltIcon
 } from '@mui/icons-material';
 
 // Email lists from Routes.jsx
 const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co";
-const ITEmails = "harry.youngjones@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co";
+const ITEmails = "harry.youngjones@buck.co,mj.hilomen@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co,mike.villasana@buck.co";
 
 const Navbar = () => {
   const { authState, oktaAuth } = useOktaAuth();
@@ -277,6 +278,12 @@ const Navbar = () => {
                   <ListItemIcon><StorageIcon fontSize="small" /></ListItemIcon>
                   <ListItemText primary="Physical Drives" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
+                {hasAccess(ITEmails) && (
+                  <ListItemButton component={Link} to="/reboot" id="reboot-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                    <ListItemIcon><RestartAltIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Reboot Machines" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                  </ListItemButton>
+                )}
               </List>
             </Collapse>
 

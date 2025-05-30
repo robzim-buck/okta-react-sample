@@ -57,6 +57,7 @@ const OnboardNewUser = lazy(() => import('./OnboardNewUser'));
 const Rapid7Jobs = lazy(() => import('./Rapid7Jobs'));
 const Rapid7Investigations = lazy(() => import('./Rapid7Investigations'));
 const ZenDeskArchiveTickets = lazy(() => import('./ZenDeskArchiveTickets'));
+const Reboot = lazy(() => import('./Reboot'));
 
 
 const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co"
@@ -343,6 +344,14 @@ const AppRoutes = () => {
         <Route path="" element={
           <Suspense fallback={<LoadingFallback />}>
             <ZenDeskArchiveTickets />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/reboot" element={<RequiredAuth allowedEmail={ITEmails}/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <Reboot />
           </Suspense>
         }/>
       </Route>

@@ -10,6 +10,7 @@
 - Never create helper apps like those defined in srv/hooks/useApi.js.  Always fix or modify the Component or route requested by the user.
 - Use a Grid layout with copmonents from the @mui/material library where possible.
 - In Grid components, never use the sm, med, lg tags. They are deprecated. Always use the size tag instead.
+- In Grid components, never use the item prop.  It is deprecated.
 - Always check that a component used is imported in the file that it is referenced from.
 - Always check api endpoints to see if they require the x-token header. If they do, use the protected api method to fetch data
 - The api endpoint has cors set up properly. Always double-check cors errors to see if they are another type of error.
