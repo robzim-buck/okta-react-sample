@@ -41,6 +41,9 @@ export default function OnboardNewUser() {
     email: '',
     login: '',
     mobilePhone: '',
+    personalEmail: '',
+    manager: '',
+    jobTitle: '',
     status: 'STAGED',
     department: '',
     subsidiary: '',
@@ -325,6 +328,9 @@ export default function OnboardNewUser() {
         email: '',
         login: '',
         mobilePhone: '',
+        personalEmail: '',
+        manager: '',
+        jobTitle: '',
         status: 'STAGED',
         department: '',
         subsidiary: '',
@@ -461,6 +467,10 @@ export default function OnboardNewUser() {
       newErrors.mobilePhone = 'Mobile phone is required';
     } else if (!/^[0-9]{10}$/.test(formData.mobilePhone.replace(/[^0-9]/g, ''))) {
       newErrors.mobilePhone = 'Mobile phone must contain 10 digits';
+    }
+
+    if (formData.personalEmail && !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$/i.test(formData.personalEmail)) {
+      newErrors.personalEmail = 'Invalid personal email address';
     }
 
     if (!formData.department.trim()) {
@@ -950,6 +960,111 @@ export default function OnboardNewUser() {
                 error={!!errors.mobilePhone}
                 helperText={errors.mobilePhone || "Format: 10 digits (e.g., 1234567890)"}
                 required
+              />
+            </Grid>
+
+            <Grid item size={12}>
+              <TextField
+                fullWidth
+                label="Personal Email"
+                name="personalEmail"
+                type="email"
+                value={formData.personalEmail}
+                onChange={handleChange}
+                error={!!errors.personalEmail}
+                helperText={errors.personalEmail || "Optional: Personal email address for the user"}
+              />
+            </Grid>
+
+            <Grid item size={12}>
+              <FormControl fullWidth>
+                <InputLabel id="manager-label">Manager</InputLabel>
+                <Select
+                  labelId="manager-label"
+                  name="manager"
+                  value={formData.manager}
+                  label="Manager"
+                  onChange={handleChange}
+                  disabled={oktaUsersQuery.isLoading}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        backgroundColor: 'white',
+                        color: 'black',
+                        maxHeight: 300
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>No Manager</em>
+                  </MenuItem>
+                  {oktaUsersQuery.isLoading ? (
+                    <MenuItem disabled>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={16} />
+                        Loading users...
+                      </Box>
+                    </MenuItem>
+                  ) : oktaUsersQuery.error ? (
+                    <MenuItem disabled>
+                      Error loading users
+                    </MenuItem>
+                  ) : oktaUsersQuery.data && Array.isArray(oktaUsersQuery.data) ? (
+                    oktaUsersQuery.data
+                      .filter(user => user.status === 'ACTIVE')
+                      .sort((a, b) => {
+                        const nameA = `${a.profile?.firstName || ''} ${a.profile?.lastName || ''}`;
+                        const nameB = `${b.profile?.firstName || ''} ${b.profile?.lastName || ''}`;
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((user) => (
+                        <MenuItem key={user.id || user.profile?.email} value={user.profile?.email || user.profile?.login}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar
+                              sx={{
+                                width: 24,
+                                height: 24,
+                                fontSize: '0.7rem',
+                                bgcolor: 'primary.main'
+                              }}
+                            >
+                              {user.profile?.firstName?.[0]}{user.profile?.lastName?.[0]}
+                            </Avatar>
+                            {`${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`}
+                            {user.profile?.title && (
+                              <Chip
+                                label={user.profile.title}
+                                size="small"
+                                variant="outlined"
+                                sx={{ ml: 1, height: 16, fontSize: '0.6rem' }}
+                              />
+                            )}
+                          </Box>
+                        </MenuItem>
+                      ))
+                  ) : (
+                    <MenuItem disabled>
+                      No users available
+                    </MenuItem>
+                  )}
+                </Select>
+                <FormHelperText>
+                  {oktaUsersQuery.isLoading ? 'Loading users...' : 
+                   oktaUsersQuery.error ? 'Error loading users' :
+                   'Optional: Select the user\'s manager from active Okta users'}
+                </FormHelperText>
+              </FormControl>
+            </Grid>
+
+            <Grid item size={12}>
+              <TextField
+                fullWidth
+                label="Job Title"
+                name="jobTitle"
+                value={formData.jobTitle}
+                onChange={handleChange}
+                helperText="Enter the user's job title/position"
               />
             </Grid>
 

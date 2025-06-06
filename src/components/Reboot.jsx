@@ -193,7 +193,7 @@ export default function Reboot(props) {
         const linuxMachines = filterMachines(allLinuxMachines);
 
         const criticalSystems = sortedData.filter(machine => 
-            machine.isCriticalSystemObject
+            machine.isCriticalSystemObject !== "No"
         ).length;
 
         return (
@@ -305,15 +305,13 @@ export default function Reboot(props) {
                                                 <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                                                     {machine.name || 'Unknown Machine'}
                                                 </Typography>
-                                                {machine.isCriticalSystemObject && (
-                                                    <Chip 
-                                                        label="Critical" 
-                                                        size="small" 
-                                                        color="warning" 
-                                                        variant="filled"
-                                                        sx={{ mt: 0.5 }}
-                                                    />
-                                                )}
+                                                <Chip 
+                                                    label={machine.isCriticalSystemObject === "No" ? "Non-Critical" : "Critical"} 
+                                                    size="small" 
+                                                    color={machine.isCriticalSystemObject === "No" ? "success" : "error"} 
+                                                    variant="filled"
+                                                    sx={{ mt: 0.5 }}
+                                                />
                                             </TableCell>
                                             <TableCell>
                                                 <Typography variant="body2">
@@ -375,7 +373,7 @@ export default function Reboot(props) {
                                                 <Collapse in={expanded[machineKey]} timeout="auto" unmountOnExit>
                                                     <Box sx={{ margin: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                                                         <Grid container spacing={3}>
-                                                            <Grid size={12} md={6}>
+                                                            <Grid size={{ xs: 12, md: 6 }}>
                                                                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                                                                     Object GUID
                                                                 </Typography>
@@ -541,15 +539,13 @@ export default function Reboot(props) {
                                                         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                                                             {machine.name || 'Unknown Machine'}
                                                         </Typography>
-                                                        {machine.isCriticalSystemObject && (
-                                                            <Chip 
-                                                                label="Critical" 
-                                                                size="small" 
-                                                                color="warning" 
-                                                                variant="filled"
-                                                                sx={{ mt: 0.5 }}
-                                                            />
-                                                        )}
+                                                        <Chip 
+                                                            label={machine.isCriticalSystemObject === "No" ? "Non-Critical" : "Critical"} 
+                                                            size="small" 
+                                                            color={machine.isCriticalSystemObject === "No" ? "success" : "error"} 
+                                                            variant="filled"
+                                                            sx={{ mt: 0.5 }}
+                                                        />
                                                     </TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2">
@@ -773,15 +769,13 @@ export default function Reboot(props) {
                                                         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                                                             {machine.name || 'Unknown Machine'}
                                                         </Typography>
-                                                        {machine.isCriticalSystemObject && (
-                                                            <Chip 
-                                                                label="Critical" 
-                                                                size="small" 
-                                                                color="warning" 
-                                                                variant="filled"
-                                                                sx={{ mt: 0.5 }}
-                                                            />
-                                                        )}
+                                                        <Chip 
+                                                            label={`Raw: "${machine.isCriticalSystemObject}" | Test: ${machine.isCriticalSystemObject === "No"}`} 
+                                                            size="small" 
+                                                            color={machine.isCriticalSystemObject === "No" ? "success" : "error"} 
+                                                            variant="filled"
+                                                            sx={{ mt: 0.5 }}
+                                                        />
                                                     </TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2">
@@ -951,7 +945,7 @@ export default function Reboot(props) {
                     <DialogContent>
                         <DialogContentText id="reboot-dialog-description">
                             Are you sure you want to reboot <strong>{rebootDialog.machine?.name}</strong>?
-                            {rebootDialog.machine?.isCriticalSystemObject && (
+                            {rebootDialog.machine?.isCriticalSystemObject !== "No" && (
                                 <Box sx={{ mt: 2, p: 2, bgcolor: 'warning.light', borderRadius: 1 }}>
                                     <Typography variant="body2" color="warning.dark" sx={{ fontWeight: 'bold' }}>
                                         ⚠️ This is a critical system. Please ensure this reboot is necessary.

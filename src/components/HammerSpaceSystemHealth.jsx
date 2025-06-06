@@ -1,7 +1,6 @@
 import { 
-  Chip, Typography, Box, Container, Grid, Alert,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Tooltip, Card, LinearProgress
+  Chip, Typography, Box, Grid, Alert,
+  Paper, LinearProgress, Button, Collapse, IconButton
 } from '@mui/material';
 import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -12,10 +11,26 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import MemoryIcon from '@mui/icons-material/Memory';
 import StorageIcon from '@mui/icons-material/Storage';
 import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useQueries } from "@tanstack/react-query";
+import { useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
 
-export default function HammerSpaceSystemHealth(props) {
+export default function HammerSpaceSystemHealth() {
+    const [expandedItems, setExpandedItems] = useState(new Set());
+    
+    const toggleExpanded = (itemId) => {
+        setExpandedItems(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(itemId)) {
+                newSet.delete(itemId);
+            } else {
+                newSet.add(itemId);
+            }
+            return newSet;
+        });
+    };
     
     const [hammerspaceSystemHealth] = useQueries({
         queries: [
@@ -70,8 +85,54 @@ export default function HammerSpaceSystemHealth(props) {
 
     const healthData = hammerspaceSystemHealth.data || {};
     
+    // Helper function to check for degraded entries in nested data
+    const checkForDegradedEntries = (obj) => {
+        if (typeof obj !== 'object' || obj === null) return false;
+        
+        // Check arrays for degraded entries
+        if (Array.isArray(obj)) {
+            return obj.some(item => checkForDegradedEntries(item));
+        }
+        
+        // Check object properties
+        for (const [key, value] of Object.entries(obj)) {
+            const keyLower = key.toLowerCase();
+            const valueLower = typeof value === 'string' ? value.toLowerCase() : '';
+            
+            // Check for numeric degraded counts
+            if (keyLower === 'degraded' || keyLower === 'failed' || keyLower === 'error') {
+                if (typeof value === 'number' && value > 0) {
+                    return true;
+                }
+            }
+            
+            // Check if this property indicates degradation (string values)
+            if (keyLower.includes('status') || keyLower.includes('state') || keyLower.includes('health')) {
+                if (valueLower.includes('degraded') || valueLower.includes('warning') || 
+                    valueLower.includes('error') || valueLower.includes('failed') || 
+                    valueLower.includes('critical')) {
+                    return true;
+                }
+            }
+            
+            // Recursively check nested objects
+            if (typeof value === 'object' && value !== null) {
+                if (checkForDegradedEntries(value)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    };
+
     // Helper function to get health status color and icon
-    const getHealthStatus = (status, value, threshold) => {
+    const getHealthStatus = (status, value, threshold, fullItem) => {
+        // First check for degraded sub-entries
+        if (fullItem && checkForDegradedEntries(fullItem)) {
+            return { color: 'warning', icon: <WarningIcon />, text: 'Warning' };
+        }
+        
         if (!status && value !== undefined && threshold !== undefined) {
             // Calculate status based on value and threshold
             if (value < threshold * 0.5) return { color: 'success', icon: <CheckCircleIcon />, text: 'Good' };
@@ -141,11 +202,74 @@ export default function HammerSpaceSystemHealth(props) {
 
     const healthItems = processHealthData(healthData);
 
+    // Calculate health status counts
+    const healthCounts = healthItems.reduce((counts, item) => {
+        const healthStatus = getHealthStatus(item.status, item.value, item.threshold, item);
+        const isDegraded = healthStatus.color === 'warning' || healthStatus.color === 'error';
+        const isHealthy = healthStatus.color === 'success' || (!isDegraded && (healthStatus.text === '' || healthStatus.text === 'Healthy'));
+        
+        if (isHealthy) {
+            counts.healthy++;
+        } else if (healthStatus.color === 'error') {
+            counts.critical++;
+        } else if (healthStatus.color === 'warning') {
+            counts.warning++;
+        } else {
+            counts.unknown++;
+        }
+        
+        return counts;
+    }, { healthy: 0, warning: 0, critical: 0, unknown: 0 });
+
     return (
         <Box>
-            <Typography variant='h4' color="primary" fontWeight="medium" gutterBottom>
-                HammerSpace System Health ({healthItems.length} components)
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Typography variant='h4' color="primary" fontWeight="medium">
+                    HammerSpace System Health
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Chip 
+                        label={`${healthCounts.healthy} Healthy`}
+                        color="success"
+                        size="small"
+                        icon={<CheckCircleIcon />}
+                        sx={{ fontWeight: 'medium' }}
+                    />
+                    {healthCounts.warning > 0 && (
+                        <Chip 
+                            label={`${healthCounts.warning} Warning`}
+                            color="warning"
+                            size="small"
+                            icon={<WarningIcon />}
+                            sx={{ fontWeight: 'medium' }}
+                        />
+                    )}
+                    {healthCounts.critical > 0 && (
+                        <Chip 
+                            label={`${healthCounts.critical} Critical`}
+                            color="error"
+                            size="small"
+                            icon={<ErrorIcon />}
+                            sx={{ fontWeight: 'medium' }}
+                        />
+                    )}
+                    {healthCounts.unknown > 0 && (
+                        <Chip 
+                            label={`${healthCounts.unknown} Unknown`}
+                            color="default"
+                            size="small"
+                            icon={<InfoIcon />}
+                            sx={{ fontWeight: 'medium' }}
+                        />
+                    )}
+                    <Chip 
+                        label={`${healthItems.length} Total`}
+                        variant="outlined"
+                        size="small"
+                        sx={{ fontWeight: 'medium' }}
+                    />
+                </Box>
+            </Box>
             
             {healthItems.length === 0 ? (
                 <Alert severity="info">
@@ -155,17 +279,55 @@ export default function HammerSpaceSystemHealth(props) {
                 <Grid container spacing={1}>
                     {healthItems.map((item, index) => {
                         const itemId = item.id || index;
-                        const healthStatus = getHealthStatus(item.status, item.value, item.threshold);
+                        const healthStatus = getHealthStatus(item.status, item.value, item.threshold, item);
+                        const isDegraded = healthStatus.color === 'warning' || healthStatus.color === 'error';
+                        const isHealthy = healthStatus.color === 'success' || (!isDegraded && (healthStatus.text === '' || healthStatus.text === 'Healthy'));
+                        const isWarning = healthStatus.color === 'warning';
+                        const isError = healthStatus.color === 'error';
                         
                         return (
-                            <Grid item size={12} key={itemId}>
-                                <Paper elevation={1} sx={{ p: 1.5, mb: 1 }}>
-                                    {/* Header with name, status, and value */}
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Grid item size={6} key={itemId}>
+                                <Paper 
+                                    elevation={1} 
+                                    sx={{ 
+                                        p: 1, 
+                                        mb: 0.5,
+                                        backgroundColor: isHealthy ? 'success.light' : (isWarning ? 'warning.light' : (isError ? 'error.light' : 'background.paper')),
+                                        border: `1px solid ${isHealthy ? 'success.main' : (isWarning ? 'warning.main' : (isError ? 'error.main' : 'divider'))}`,
+                                        '&:hover': {
+                                            elevation: 2
+                                        }
+                                    }}
+                                >
+                                    {/* Compact header with name, status, and value */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                                         {getMetricIcon(item.name)}
-                                        <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'medium', flexGrow: 1 }}>
+                                        <Typography variant="subtitle2" sx={{ 
+                                            fontWeight: 'medium', 
+                                            flexGrow: 1, 
+                                            fontSize: '0.8rem',
+                                            color: isHealthy ? 'success.dark' : (isWarning ? 'warning.dark' : (isError ? 'error.dark' : 'text.primary'))
+                                        }}>
                                             {item.name}
                                         </Typography>
+                                        <Chip 
+                                            label={healthStatus.text || (typeof item.value === 'number' ? formatPercentage(item.value) : 'OK')}
+                                            color={healthStatus.color}
+                                            size="small"
+                                            icon={healthStatus.icon}
+                                            sx={{ 
+                                                fontSize: '0.6rem', 
+                                                height: 18,
+                                                '& .MuiChip-icon': { fontSize: '0.8rem' }
+                                            }}
+                                        />
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => toggleExpanded(itemId)}
+                                            sx={{ ml: 0.5, width: 20, height: 20 }}
+                                        >
+                                            {expandedItems.has(itemId) ? <ExpandLessIcon sx={{ fontSize: '0.8rem' }} /> : <ExpandMoreIcon sx={{ fontSize: '0.8rem' }} />}
+                                        </IconButton>
                                     </Box>
                                     
                                     {/* Compact progress bar */}
@@ -177,34 +339,18 @@ export default function HammerSpaceSystemHealth(props) {
                                                 item.value < 50 ? 'success' : 
                                                 item.value < 80 ? 'warning' : 'error'
                                             }
-                                            sx={{ height: 4, borderRadius: 2, mb: 1 }}
+                                            sx={{ height: 3, borderRadius: 2, mb: 0.5 }}
                                         />
                                     )}
                                     
-                                    {/* Compact chips for key metrics */}
-                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                                        {item.lastCheck && (
-                                            <Chip 
-                                                label={ensureValidLabel(`Check: ${new Date(item.lastCheck).toLocaleTimeString()}`)}
-                                                variant="outlined"
-                                                size="small"
-                                                sx={{ fontSize: '0.7rem', height: 20 }}
-                                            />
-                                        )}
+                                    {/* Ultra compact metrics - only show most important ones */}
+                                    <Box sx={{ display: 'flex', gap: 0.25, flexWrap: 'wrap', mb: 0.5 }}>
                                         {item.uptime && (
                                             <Chip 
-                                                label={ensureValidLabel(`Up: ${item.uptime}`)}
+                                                label={ensureValidLabel(`${item.uptime}`)}
                                                 variant="outlined"
                                                 size="small"
-                                                sx={{ fontSize: '0.7rem', height: 20 }}
-                                            />
-                                        )}
-                                        {item.threshold && (
-                                            <Chip 
-                                                label={ensureValidLabel(`Thresh: ${formatPercentage(item.threshold)}`)}
-                                                variant="outlined"
-                                                size="small"
-                                                sx={{ fontSize: '0.7rem', height: 20 }}
+                                                sx={{ fontSize: '0.6rem', height: 16, '& .MuiChip-label': { px: 0.5 } }}
                                             />
                                         )}
                                         {item.responseTime && (
@@ -212,83 +358,56 @@ export default function HammerSpaceSystemHealth(props) {
                                                 label={ensureValidLabel(`${item.responseTime}ms`)}
                                                 variant="outlined"
                                                 size="small"
-                                                sx={{ fontSize: '0.7rem', height: 20 }}
+                                                sx={{ fontSize: '0.6rem', height: 16, '& .MuiChip-label': { px: 0.5 } }}
                                             />
                                         )}
                                         {item.availability && (
                                             <Chip 
-                                                label={ensureValidLabel(`Avail: ${formatPercentage(item.availability)}`)}
+                                                label={ensureValidLabel(`${formatPercentage(item.availability)}`)}
                                                 variant="outlined"
                                                 size="small"
-                                                sx={{ fontSize: '0.7rem', height: 20 }}
+                                                sx={{ fontSize: '0.6rem', height: 16, '& .MuiChip-label': { px: 0.5 } }}
                                             />
                                         )}
                                     </Box>
                                     
-                                    {/* Compact details in a single row table */}
-                                    <TableContainer sx={{ maxHeight: 150 }}>
-                                        <Table size="small" sx={{ '& .MuiTableCell-root': { py: 0.5, fontSize: '0.75rem' } }}>
-                                            <TableBody>
-                                                {item.message && (
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'medium', width: '20%' }}>Message</TableCell>
-                                                        <TableCell>{item.message}</TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {item.errorMessage && (
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'medium', color: 'error.main' }}>Error</TableCell>
-                                                        <TableCell sx={{ color: 'error.main' }}>{item.errorMessage}</TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {item.description && (
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'medium' }}>Description</TableCell>
-                                                        <TableCell>{item.description}</TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {(item.currentValue !== undefined || item.expectedValue !== undefined) && (
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'medium' }}>Values</TableCell>
-                                                        <TableCell>
-                                                            {item.currentValue !== undefined && `Current: ${formatPercentage(item.currentValue)}`}
-                                                            {item.currentValue !== undefined && item.expectedValue !== undefined && ' | '}
-                                                            {item.expectedValue !== undefined && `Expected: ${formatPercentage(item.expectedValue)}`}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {item.lastFailure && (
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'medium', color: 'warning.main' }}>Last Failure</TableCell>
-                                                        <TableCell sx={{ color: 'warning.main' }}>{new Date(item.lastFailure).toLocaleString()}</TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {item.recommendations && Array.isArray(item.recommendations) && (
-                                                    <TableRow>
-                                                        <TableCell sx={{ fontWeight: 'medium' }}>Recommendations</TableCell>
-                                                        <TableCell>{item.recommendations.join('; ')}</TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {/* Show remaining properties in a compact format */}
-                                                {Object.entries(item)
-                                                    .filter(([key]) => !['id', 'name', 'status', 'value', 'message', 'lastCheck', 'uptime', 'threshold', 'responseTime', 'availability', 'errorMessage', 'description', 'currentValue', 'expectedValue', 'lastFailure', 'recommendations'].includes(key))
-                                                    .map(([key, value]) => (
-                                                        <TableRow key={key}>
-                                                            <TableCell sx={{ fontWeight: 'medium' }}>
-                                                                {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {typeof value === 'object' ? 
-                                                                    JSON.stringify(value).substring(0, 100) + (JSON.stringify(value).length > 100 ? '...' : '') : 
-                                                                    String(value)
-                                                                }
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                }
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
+                                    {/* Show only critical details */}
+                                    {(item.message || item.errorMessage) && (
+                                        <Box sx={{ fontSize: '0.7rem', mt: 0.5 }}>
+                                            {item.errorMessage && (
+                                                <Typography variant="caption" sx={{ color: 'error.main', display: 'block' }}>
+                                                    {item.errorMessage}
+                                                </Typography>
+                                            )}
+                                            {item.message && !item.errorMessage && (
+                                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                                                    {item.message}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    )}
+                                    
+                                    {/* Raw data section */}
+                                    <Collapse in={expandedItems.has(itemId)}>
+                                        <Box sx={{ mt: 1, p: 1, backgroundColor: 'grey.100', borderRadius: 1 }}>
+                                            <Typography variant="caption" sx={{ fontWeight: 'medium', color: 'text.secondary', mb: 0.5, display: 'block' }}>
+                                                Raw Data:
+                                            </Typography>
+                                            <Box sx={{ 
+                                                backgroundColor: 'background.paper', 
+                                                p: 1, 
+                                                borderRadius: 0.5,
+                                                maxHeight: 200,
+                                                overflow: 'auto',
+                                                fontSize: '0.7rem',
+                                                fontFamily: 'monospace',
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all'
+                                            }}>
+                                                {JSON.stringify(item, null, 2)}
+                                            </Box>
+                                        </Box>
+                                    </Collapse>
                                 </Paper>
                             </Grid>
                         );

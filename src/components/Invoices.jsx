@@ -2,7 +2,7 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import { useEffect, useState, Component } from 'react';
 import { Typography, Button, Chip, Select, MenuItem } from '@mui/material';
-import { Paper, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Box } from '@mui/material'
+import { Paper, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Box, TableSortLabel } from '@mui/material'
 import uuid from 'react-uuid';
 import CircularProgress from '@mui/material/CircularProgress';
 import { DatePicker, LocalizationProvider }  from '@mui/x-date-pickers';
@@ -54,9 +54,21 @@ export default function Invoices(props) {
     const [table, setTable] = useState('PRODUCTION');
 
     const [datePickerValue, setDatePickerValue] = useState(dayjs(''));
+    const [orderBy, setOrderBy] = useState('');
+    const [order, setOrder] = useState('asc');
 
     const handleTableChange = (event) => {
         setTable(event.target.value);
+    };
+
+    const handleRequestSort = (property) => {
+        const isAsc = orderBy === property && order === 'asc';
+        setOrder(isAsc ? 'desc' : 'asc');
+        setOrderBy(property);
+    };
+
+    const createSortHandler = (property) => () => {
+        handleRequestSort(property);
     };
 
 
@@ -100,10 +112,31 @@ export default function Invoices(props) {
             filteredData = invoices.filter((f) => f.triggerdate.includes(valueString));
         }
 
+        const sortedData = [...filteredData].sort((a, b) => {
+            if (!orderBy) return 0;
+            
+            let aValue = a[orderBy];
+            let bValue = b[orderBy];
+            
+            // Handle numeric sorting for amount
+            if (orderBy === 'amount') {
+                aValue = parseFloat(aValue);
+                bValue = parseFloat(bValue);
+            }
+            
+            if (bValue < aValue) {
+                return order === 'asc' ? 1 : -1;
+            }
+            if (bValue > aValue) {
+                return order === 'asc' ? -1 : 1;
+            }
+            return 0;
+        });
+
         return (
             <>
             <ErrorBoundary>
-            <Typography variant='h4' gutterBottom>{table} {props.name} </Typography>
+            <Typography variant='h4' gutterBottom>{table} {props.name} INVOICES</Typography>
             <Select
                 labelId="invoice-table-select-id"
                 id="table-select"
@@ -153,6 +186,15 @@ export default function Invoices(props) {
                                             setDatePickerValue(null);
                                         }
                                     }}
+                                    slotProps={{
+                                        popper: {
+                                            sx: {
+                                                '& .MuiPaper-root': {
+                                                    backgroundColor: 'white'
+                                                }
+                                            }
+                                        }
+                                    }}
                                 />
                             </LocalizationProvider>
                         </ErrorBoundary>
@@ -167,19 +209,100 @@ export default function Invoices(props) {
                 <Table sx={{ minWidth: 650 }} aria-label="simple table">
                     <TableHead sx={{ backgroundColor: 'primary.main' }}>
                         <TableRow>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Job Code</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Job ID</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Sales Order ID</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Invoice ID</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Processed At</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Trigger Date</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="right">Amount</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>RowName</TableCell>
-                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Created At</TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'jobcode'}
+                                    direction={orderBy === 'jobcode' ? order : 'asc'}
+                                    onClick={createSortHandler('jobcode')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Job Code
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'jobid'}
+                                    direction={orderBy === 'jobid' ? order : 'asc'}
+                                    onClick={createSortHandler('jobid')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Job ID
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'salesorderid'}
+                                    direction={orderBy === 'salesorderid' ? order : 'asc'}
+                                    onClick={createSortHandler('salesorderid')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Sales Order ID
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'invoiceid'}
+                                    direction={orderBy === 'invoiceid' ? order : 'asc'}
+                                    onClick={createSortHandler('invoiceid')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Invoice ID
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'timestamp'}
+                                    direction={orderBy === 'timestamp' ? order : 'asc'}
+                                    onClick={createSortHandler('timestamp')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Processed At
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'triggerdate'}
+                                    direction={orderBy === 'triggerdate' ? order : 'asc'}
+                                    onClick={createSortHandler('triggerdate')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Trigger Date
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="right">
+                                <TableSortLabel
+                                    active={orderBy === 'amount'}
+                                    direction={orderBy === 'amount' ? order : 'asc'}
+                                    onClick={createSortHandler('amount')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Amount
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'rowname'}
+                                    direction={orderBy === 'rowname' ? order : 'asc'}
+                                    onClick={createSortHandler('rowname')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    RowName
+                                </TableSortLabel>
+                            </TableCell>
+                            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>
+                                <TableSortLabel
+                                    active={orderBy === 'created'}
+                                    direction={orderBy === 'created' ? order : 'asc'}
+                                    onClick={createSortHandler('created')}
+                                    sx={{ '&.MuiTableSortLabel-root': { color: 'white' }, '&.MuiTableSortLabel-root:hover': { color: 'white' }, '&.Mui-active': { color: 'white' }, '& .MuiTableSortLabel-icon': { color: 'white !important' } }}
+                                >
+                                    Created At
+                                </TableSortLabel>
+                            </TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {filteredData.map((item) => (
+                        {sortedData.map((item) => (
                             <TableRow key={uuid()} sx={{ '&:nth-of-type(odd)': { backgroundColor: 'action.hover' } }}>
                                 <TableCell component="th" scope="row">{item.jobcode}</TableCell>
                                 <TableCell>{item.jobid}</TableCell>

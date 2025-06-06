@@ -63,12 +63,14 @@ import {
   Security as SecurityIcon,
   FindInPage as FindInPageIcon,
   Archive as ArchiveIcon,
-  RestartAlt as RestartAltIcon
+  RestartAlt as RestartAltIcon,
+  CalendarToday as CalendarTodayIcon,
+  TableChart as TableChartIcon
 } from '@mui/icons-material';
 
 // Email lists from Routes.jsx
 const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co";
-const ITEmails = "harry.youngjones@buck.co,mj.hilomen@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co,mike.villasana@buck.co";
+const ITEmails = "harry.youngjones@buck.co,mj.hilomen@buck.co,daniel.hernandez@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co,mike.villasana@buck.co";
 
 const Navbar = () => {
   const { authState, oktaAuth } = useOktaAuth();
@@ -344,6 +346,10 @@ const Navbar = () => {
                   <ListItemIcon><GroupWorkIcon fontSize="small" /></ListItemIcon>
                   <ListItemText primary="Hammerspace Volume Groups" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
+                <ListItemButton component={Link} to="/projectsizes" id="project-sizes-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><TableChartIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Project Sizes" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
               </List>
             </Collapse>
 
@@ -404,10 +410,24 @@ const Navbar = () => {
             </ListItemButton>
             <Collapse in={!collapsed.monitoring} timeout="auto" unmountOnExit>
               <List component="div" disablePadding>
+                <ListItemButton component={Link} to="/ptocalendar" id="pto-calendar-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="PTO Calendar" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
                 <ListItemButton component={Link} to="/saltping" id="salt-ping-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><WifiIcon fontSize="small" /></ListItemIcon>
                   <ListItemText primary="Salt Ping" slotProps={{ primary: { fontSize: '0.875rem' } }} />
                 </ListItemButton>
+                <ListItemButton component={Link} to="/saltcommand" id="salt-command-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                  <ListItemIcon><TerminalIcon fontSize="small" /></ListItemIcon>
+                  <ListItemText primary="Salt Command" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                </ListItemButton>
+                {hasAccess(ITEmails) && (
+                  <ListItemButton component={Link} to="/windowscommand" id="windows-command-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
+                    <ListItemIcon><TerminalIcon fontSize="small" /></ListItemIcon>
+                    <ListItemText primary="Windows Command" slotProps={{ primary: { fontSize: '0.875rem' } }} />
+                  </ListItemButton>
+                )}
                 {/* <ListItemButton component={Link} to="/parsecleoreport" id="parsecleoreport-button" sx={{ pl: 4, py: 0.5, minHeight: 32 }}>
                   <ListItemIcon><BarChartIcon fontSize="small" /></ListItemIcon>
                   <ListItemText primary="Parsec Leo Report" primaryTypographyProps={{ fontSize: '0.875rem' }} />

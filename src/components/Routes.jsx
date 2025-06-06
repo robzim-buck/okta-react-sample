@@ -21,6 +21,7 @@ const Home = lazy(() => import('../pages/Home'));
 const Profile = lazy(() => import('../pages/Profile'));
 const APILogs = lazy(() => import('./APILogs'));
 const SaltPing = lazy(() => import('./SaltPing'));
+const SaltCommand = lazy(() => import('./SaltCommand'));
 const ActiveSelfServLicenses = lazy(() => import('./ActiveSelfServLicenses'));
 const GrantSelfServeLicenses = lazy(() => import('./GrantSelfServeLicenses'));
 const ReturnSelfServeLicenses = lazy(() => import('./ReturnSelfServeLicenses'));
@@ -58,10 +59,14 @@ const Rapid7Jobs = lazy(() => import('./Rapid7Jobs'));
 const Rapid7Investigations = lazy(() => import('./Rapid7Investigations'));
 const ZenDeskArchiveTickets = lazy(() => import('./ZenDeskArchiveTickets'));
 const Reboot = lazy(() => import('./Reboot'));
+const PTOCalendar = lazy(() => import('./PTOCalendar'));
+const ProjectSizes = lazy(() => import('./ProjectSizes'));
+const WindowsCommand = lazy(() => import('./WindowsCommand'));
 
 
 const allowedEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co"
 const ITEmails = "harry.youngjones@buck.co,mark.rutherford@buck.co,rob.zimmelman@buck.co,john.kleber@buck.co,gautam.sinha@buck.co,miranda.summar@buck.co,alexandra.rezk@buck.co,rizzo.islam@buck.co,carlo.suozzo@buck.co,jonathan.brazier@buck.co,sasha.nater@buck.co,priscilla.pena@buck.co,glen.parker@buck.co"
+const PTOEmails = "rob.zimmelman@buck.co,john.kleber@buck.co,nick@buck.co,ncarmen@buck.co,barrett.brown@buck.co,gautam.sinha@buck.co"
 
 
 // Loading component for Suspense fallback
@@ -110,6 +115,13 @@ const AppRoutes = () => {
       <Route path="/saltping" element={<RequiredAuth/>}>
         <Route path="" element={
           <Suspense fallback={<LoadingFallback />}><SaltPing /></Suspense>
+        }/>
+      </Route>
+      <Route path="/saltcommand" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <SaltCommand name="Salt Command" />
+          </Suspense>
         }/>
       </Route>
       <Route path="/activeselfservelicenses" element={<RequiredAuth/>}>
@@ -352,6 +364,30 @@ const AppRoutes = () => {
         <Route path="" element={
           <Suspense fallback={<LoadingFallback />}>
             <Reboot />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/ptocalendar" element={<RequiredAuth allowedEmail={PTOEmails}/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <PTOCalendar />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/projectsizes" element={<RequiredAuth/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <ProjectSizes />
+          </Suspense>
+        }/>
+      </Route>
+
+      <Route path="/windowscommand" element={<RequiredAuth allowedEmail={ITEmails}/>}>
+        <Route path="" element={
+          <Suspense fallback={<LoadingFallback />}>
+            <WindowsCommand name="Windows Command" />
           </Suspense>
         }/>
       </Route>
